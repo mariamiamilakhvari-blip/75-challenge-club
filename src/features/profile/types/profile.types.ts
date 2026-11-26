@@ -17,6 +17,14 @@ export type Profile = {
   published: boolean;
   teamId: string | null;
   day: number;
+  needsAbout: boolean;
+};
+
+export type AboutInput = {
+  age: number;
+  city: string;
+  interests: string[];
+  timezone: string;
 };
 
 export type ProfileState = {

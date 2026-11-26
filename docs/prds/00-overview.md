@@ -12,9 +12,11 @@ Mobile-first web app (Next.js 16, MongoDB, NextAuth credentials). Max width ~`ma
 3. Discover: swipe profile cards sorted by overlap → PRD 03
 4. Team board: shared challenges × weekdays → PRD 04
 5. Daily view: check off, streak counter, comments, "I'm in" → PRD 05
+6. AI challenge suggestions during onboarding → PRD 06
 
 ## Decisions (locked)
-- Auth: email + password only (Google kept in code, optional).
+- Auth: email + password, plus Google OAuth. Google users missing age/city/interests get an "About you" step at onboarding start.
+- AI: OpenRouter (`OPENROUTER_MODEL`, default `openrouter/free`) used ONLY for challenge suggestions in onboarding (PRD 06). No other AI features.
 - DB: MongoDB Atlas via `MONGO_URI`.
 - Teams: user in max ONE team at a time; team max 6 members; can leave.
 - Design: warm & energetic — off-white base, coral accent, Plus Jakarta Sans.

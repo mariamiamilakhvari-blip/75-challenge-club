@@ -1,5 +1,5 @@
 import { UserDocument, UserModel } from '@/features/auth/schema/user.schema';
-import { UserChallenge } from '@/features/profile/types/profile.types';
+import { AboutInput, UserChallenge } from '@/features/profile/types/profile.types';
 import { mongo } from '@/shared/lib/mongo';
 
 export const profileRepository = {
@@ -31,6 +31,12 @@ export const profileRepository = {
   async setChallenges(id: string, challenges: UserChallenge[]): Promise<boolean> {
     await mongo.connect();
     const result = await UserModel.updateOne({ _id: id }, { $set: { challenges } });
+    return result.matchedCount > 0;
+  },
+
+  async setAbout(id: string, about: AboutInput): Promise<boolean> {
+    await mongo.connect();
+    const result = await UserModel.updateOne({ _id: id }, { $set: about });
     return result.matchedCount > 0;
   },
 

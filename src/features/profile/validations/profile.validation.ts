@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { SignUpSchema } from '@/features/auth/validations/auth.validation';
 import { MAX_CHALLENGES } from '@/shared/const/challenge.const';
 
 export const UserChallengeInputSchema = z.object({
@@ -25,3 +26,12 @@ export const CustomChallengeSchema = z.object({
 });
 
 export type CustomChallengeType = z.infer<typeof CustomChallengeSchema>;
+
+export const AboutYouSchema = SignUpSchema.pick({
+  age: true,
+  city: true,
+  interests: true,
+  timezone: true,
+});
+
+export type AboutYouType = z.infer<typeof AboutYouSchema>;

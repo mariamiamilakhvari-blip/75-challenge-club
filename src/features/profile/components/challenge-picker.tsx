@@ -1,9 +1,11 @@
 'use client';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 
+import { SuggestionsPanel } from '@/features/ai/components/suggestions-panel';
+import { ChallengeSuggestion } from '@/features/ai/types/suggestion.types';
 import { ChallengeCard } from '@/features/profile/components/challenge-card';
 import { CustomChallengeInput } from '@/features/profile/components/custom-challenge-input';
 import { PublishBar } from '@/features/profile/components/publish-bar';
@@ -14,6 +16,7 @@ import {
   UpdateChallengesSchema,
   UpdateChallengesType,
 } from '@/features/profile/validations/profile.validation';
+import { Button } from '@/shared/components/ui/button';
 import { ALL_DAYS, CHALLENGES, MAX_CHALLENGES } from '@/shared/const/challenge.const';
 
 const SLUG_MAX_LENGTH = 40;
@@ -34,6 +37,7 @@ export const ChallengePicker = () => {
   const { profile, loading, error: loadError } = useMyProfile();
   const { saveChallenges, saving, error: saveError } = useSaveChallenges();
   const { publish, publishing, error: publishError } = usePublish();
+  const [suggestionsOpen, setSuggestionsOpen] = useState<boolean | null>(null);
 
   const form = useForm<UpdateChallengesType>({
     resolver: zodResolver(UpdateChallengesSchema),
@@ -70,6 +74,23 @@ export const ChallengePicker = () => {
     form.setValue(`challenges.${index}.days`, next, { shouldDirty: true });
   };
 
+  const applySuggestions = (suggestions: ChallengeSuggestion[]) => {
+    let count = values.length;
+    for (const suggestion of suggestions) {
+      const preset = CHALLENGES.find((item) => item.key === suggestion.key);
+      if (!preset) continue;
+      const days = [...suggestion.days];
+      const index = indexOfKey(preset.key);
+      if (index >= 0) {
+        form.setValue(`challenges.${index}.days`, days, { shouldDirty: true });
+        continue;
+      }
+      if (count >= MAX_CHALLENGES) break;
+      append({ key: preset.key, title: preset.title, custom: false, days });
+      count += 1;
+    }
+  };
+
   const addCustom = (title: string) => {
     if (full) return;
     append({ key: customKey(title), title: title.trim(), custom: true, days: [...ALL_DAYS] });
@@ -91,9 +112,27 @@ export const ChallengePicker = () => {
   }
 
   const error = loadError ?? saveError ?? publishError;
+  const showSuggestions = suggestionsOpen ?? (profile?.challenges.length ?? 0) === 0;
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 pb-24">
+      {showSuggestions ? (
+        <SuggestionsPanel
+          selectedKeys={values.map((challenge) => challenge.key)}
+          onApply={applySuggestions}
+          onClose={() => setSuggestionsOpen(false)}
+        />
+      ) : (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setSuggestionsOpen(true)}
+          className="w-full rounded-full border-primary/40 font-semibold text-primary active:scale-95"
+        >
+          ✨ Suggest for me
+        </Button>
+      )}
+
       {CHALLENGES.map((preset) => {
         const index = indexOfKey(preset.key);
         return (

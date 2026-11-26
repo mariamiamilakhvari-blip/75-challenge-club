@@ -3,6 +3,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 
+import { GoogleSignInButton } from '@/features/auth/components/google-sign-in-button';
+import { OrDivider } from '@/features/auth/components/or-divider';
 import { useLogin } from '@/features/auth/hooks/use-login';
 import { useAuthStore } from '@/features/auth/hooks/useAuthStore';
 import { LoginSchema, LoginType } from '@/features/auth/validations/auth.validation';
@@ -38,6 +40,9 @@ export const LoginForm = () => {
           onSubmit={form.handleSubmit(login)}
           className="animate-rise animate-rise-1 space-y-5 rounded-2xl border border-border bg-card p-5 shadow-sm"
         >
+          <GoogleSignInButton />
+          <OrDivider />
+
           <FormField
             control={form.control}
             name="email"

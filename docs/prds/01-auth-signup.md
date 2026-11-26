@@ -18,3 +18,9 @@ Create account with profile basics in one short form.
 - Invalid fields show inline errors (react-hook-form + zod).
 - Duplicate email shows "Email already in use".
 - Mobile layout 360px wide works without horizontal scroll.
+
+## Google sign-in (added)
+- "Continue with Google" on sign-in and sign-up, above an "or" divider → `/today`.
+- New Google users have no age/city/interests (timezone UTC). Profile exposes `needsAbout`; `/onboarding` shows an "About you" form (age, city, interests, timezone from browser) before the challenge picker.
+- `PUT /api/profile/about` body `AboutYouSchema` (same rules as signup).
+- Google Console redirect URI: `<NEXTAUTH_URL>/api/auth/callback/google`.

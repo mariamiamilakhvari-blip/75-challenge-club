@@ -3,7 +3,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 
+import { GoogleSignInButton } from '@/features/auth/components/google-sign-in-button';
 import { InterestPicker } from '@/features/auth/components/interest-picker';
+import { OrDivider } from '@/features/auth/components/or-divider';
 import { useRegister } from '@/features/auth/hooks/use-register';
 import { useAuthStore } from '@/features/auth/hooks/useAuthStore';
 import { SignUpSchema, SignUpType } from '@/features/auth/validations/auth.validation';
@@ -59,6 +61,9 @@ export const SignUpForm = () => {
           onSubmit={form.handleSubmit(onSubmit)}
           className="animate-rise animate-rise-1 space-y-5 rounded-2xl border border-border bg-card p-5 shadow-sm"
         >
+          <GoogleSignInButton />
+          <OrDivider />
+
           <FormField
             control={form.control}
             name="fullName"

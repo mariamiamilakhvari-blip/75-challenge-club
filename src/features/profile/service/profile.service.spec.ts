@@ -6,6 +6,8 @@ import { profileRepository } from '@/features/profile/repository/profile.reposit
 import {
   getMyProfileService,
   publishService,
+  toProfile,
+  updateAboutService,
   updateChallengesService,
 } from '@/features/profile/service/profile.service';
 import { syncStreak } from '@/features/profile/service/streak.service';
@@ -37,6 +39,7 @@ describe('profile.service', () => {
     vi.setSystemTime(new Date('2026-11-27T12:00:00Z'));
     vi.mocked(profileRepository.updateById).mockResolvedValue(true);
     vi.mocked(profileRepository.setChallenges).mockResolvedValue(true);
+    vi.mocked(profileRepository.setAbout).mockResolvedValue(true);
   });
 
   describe('getMyProfileService', () => {
@@ -131,6 +134,58 @@ describe('profile.service', () => {
       } as UserDocument);
       await publishService(userId);
       expect(profileRepository.updateById).toHaveBeenCalledWith(userId, { published: true });
+    });
+  });
+
+  describe('toProfile needsAbout', () => {
+    it('is false when age, city and interests are set', () => {
+      expect(toProfile(baseUser, 1).needsAbout).toBe(false);
+    });
+
+    it('is true when age is missing', () => {
+      expect(toProfile({ ...baseUser, age: undefined } as UserDocument, 1).needsAbout).toBe(true);
+    });
+
+    it('is true when city is empty', () => {
+      expect(toProfile({ ...baseUser, city: '  ' } as UserDocument, 1).needsAbout).toBe(true);
+    });
+
+    it('is true when interests are empty', () => {
+      expect(toProfile({ ...baseUser, interests: [] as string[] } as UserDocument, 1).needsAbout).toBe(true);
+    });
+  });
+
+  describe('updateAboutService', () => {
+    const input = { age: 30, city: ' Batumi ', interests: ['Running', 'Running', 'Yoga'], timezone: 'Asia/Tbilisi' };
+
+    it('returns 404 when user missing', async () => {
+      vi.mocked(profileRepository.findById).mockResolvedValueOnce(null);
+      const result = await updateAboutService(userId, input);
+      expect(result.status).toBe(404);
+      expect(profileRepository.setAbout).not.toHaveBeenCalled();
+    });
+
+    it('saves trimmed, deduped basics and clears needsAbout', async () => {
+      vi.mocked(profileRepository.findById).mockResolvedValueOnce({
+        ...baseUser,
+        age: undefined,
+        city: '',
+        interests: [] as string[],
+      } as UserDocument);
+      const result = await updateAboutService(userId, input);
+      expect(result.status).toBe(200);
+      expect(profileRepository.setAbout).toHaveBeenCalledWith(userId, {
+        age: 30,
+        city: 'Batumi',
+        interests: ['Running', 'Yoga'],
+        timezone: 'Asia/Tbilisi',
+      });
+      expect(result.data).toMatchObject({
+        age: 30,
+        city: 'Batumi',
+        timezone: 'Asia/Tbilisi',
+        needsAbout: false,
+      });
     });
   });
 });

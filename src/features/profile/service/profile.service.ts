@@ -2,13 +2,19 @@ import { UserDocument } from '@/features/auth/schema/user.schema';
 import { profileRepository } from '@/features/profile/repository/profile.repository';
 import { syncStreak } from '@/features/profile/service/streak.service';
 import { Profile, UserChallenge } from '@/features/profile/types/profile.types';
-import { UpdateChallengesType } from '@/features/profile/validations/profile.validation';
+import { AboutYouType, UpdateChallengesType } from '@/features/profile/validations/profile.validation';
 import { CHALLENGES } from '@/shared/const/challenge.const';
 import { ServiceResult } from '@/shared/types/common';
 import { todayInTimezone } from '@/shared/utils/date';
 import { displayDay } from '@/shared/utils/streak';
 
 const CUSTOM_PREFIX = 'custom-';
+
+function needsAbout(user: UserDocument): boolean {
+  const ageMissing = user.age === null || user.age === undefined;
+  const cityMissing = !user.city || user.city.trim() === '';
+  return ageMissing || cityMissing || user.interests.length === 0;
+}
 
 export function toProfile(user: UserDocument, day: number): Profile {
   return {
@@ -28,6 +34,7 @@ export function toProfile(user: UserDocument, day: number): Profile {
     published: user.published,
     teamId: user.teamId ? user.teamId.toString() : null,
     day,
+    needsAbout: needsAbout(user),
   };
 }
 
@@ -90,5 +97,24 @@ export async function publishService(userId: string): Promise<ServiceResult<Prof
 
   await profileRepository.updateById(userId, changes);
   const updated: UserDocument = { ...user, ...changes };
+  return { data: toProfile(updated, currentDay(updated)), status: 200 };
+}
+
+export async function updateAboutService(
+  userId: string,
+  input: AboutYouType
+): Promise<ServiceResult<Profile>> {
+  const user = await profileRepository.findById(userId);
+  if (!user) return { data: { error: 'NOT_FOUND' }, status: 404 };
+
+  const about = {
+    age: input.age,
+    city: input.city.trim(),
+    interests: Array.from(new Set(input.interests.map((interest) => interest.trim()))),
+    timezone: input.timezone,
+  };
+
+  await profileRepository.setAbout(userId, about);
+  const updated: UserDocument = { ...user, ...about };
   return { data: toProfile(updated, currentDay(updated)), status: 200 };
 }
