@@ -8,10 +8,10 @@ type AuthPageShellProps = {
 
 export const AuthPageShell = ({ children }: AuthPageShellProps) => {
   return (
-    <div className="relative flex min-h-screen flex-col bg-background text-foreground">
+    <div className="flex min-h-screen flex-col bg-background text-foreground">
       <Header />
 
-      <main className="flex flex-1 items-center justify-center px-4">
+      <main className="mx-auto flex w-full max-w-md flex-1 flex-col px-4 pb-12 pt-4">
         {children}
       </main>
     </div>

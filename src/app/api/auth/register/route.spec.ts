@@ -25,18 +25,29 @@ function makeRequest(body: unknown) {
   });
 }
 
+const validBody = {
+  fullName: 'Bob',
+  email: 'b@b.com',
+  password: 'pass1234',
+  age: 30,
+  city: 'Berlin',
+  interests: ['Running'],
+  timezone: 'Europe/Berlin',
+};
+
 describe('POST /api/auth/register', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('returns 201 on success', async () => {
-    mockValidate.mockResolvedValueOnce({ data: { fullName: 'Bob', email: 'b@b.com', password: 'pass1234' } } as never);
+    mockValidate.mockResolvedValueOnce({ data: validBody });
     mockRegister.mockResolvedValueOnce({ data: { message: 'Account created' }, status: 201 });
-    const res = await POST(makeRequest({}));
+    const res = await POST(makeRequest(validBody));
     expect(res.status).toBe(201);
+    expect(mockRegister).toHaveBeenCalledWith(validBody);
   });
 
   it('returns 409 when email is taken', async () => {
-    mockValidate.mockResolvedValueOnce({ data: { fullName: 'Bob', email: 'b@b.com', password: 'pass1234' } } as never);
+    mockValidate.mockResolvedValueOnce({ data: validBody });
     mockRegister.mockResolvedValueOnce({ data: { error: 'EMAIL_TAKEN' }, status: 409 });
     const res = await POST(makeRequest({}));
     expect(res.status).toBe(409);

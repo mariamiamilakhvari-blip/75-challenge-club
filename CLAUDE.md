@@ -304,12 +304,12 @@ Ask these exact axes; each meaningfully changes the design:
 
 ```
 STATUS: locked
-Product:    SaaS dashboard / B2B
-Palette:    Monochrome + electric indigo accent
-            base #FAFAFA (light) / #0A0A0A (dark); accent #5B5BFF
-            tokens: --primary oklch(0.555 0.243 271) light / oklch(0.62 0.21 271) dark
-Type:       Geometric sans — Space Grotesk (display, 500/600/700) + Inter (body) + Geist Mono (data)
-Feel:       Balanced — CSS load-rise stagger + hover micro-interactions; reduced-motion respected
-Signature:  Left-aligned typographic hero with one accent word + honest stat strip;
-            dashboard app-shell with mobile drawer sidebar and segmented indigo channel meters
+Product:    Consumer app (mobile-first 75-day group challenge)
+Palette:    Warm & energetic — off-white base #FFF8F2 / dark #1C1512; coral accent #FF6B4A
+            tokens: --primary oklch(0.68 0.19 35) light / oklch(0.72 0.18 38) dark
+            --success oklch(0.68 0.15 150) for completed check-ins
+Type:       Humanist & friendly — Plus Jakarta Sans (display 700/800 + body 400-600) + Geist Mono (numbers)
+Feel:       Balanced — rise stagger on load, tactile press states, swipe card motion; reduced-motion respected
+Signature:  Max-w-md phone column, bottom tab bar (Today · Team · Discover · Profile),
+            big "Day N of 75" counter, rounded-2xl cards, coral pill buttons
 ```

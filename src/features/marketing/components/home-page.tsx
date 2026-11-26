@@ -1,99 +1,82 @@
-import { ArrowRight, Boxes, Layers, Shield, type LucideIcon } from 'lucide-react';
+import { ArrowRight, Flame, ListChecks, Users, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 
 import { Footer } from '@/shared/components/layout/footer';
 import { Header } from '@/shared/components/layout/header';
 import { Button } from '@/shared/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/shared/components/ui/card';
-import { HOME_FEATURES, HOME_STATS, type FeatureCard } from '@/shared/const/home.const';
+import { HOME_HERO, HOW_IT_WORKS, type HowItWorksStep } from '@/shared/const/home.const';
+import { cn } from '@/shared/lib/utils';
 
-const FEATURE_ICON_MAP: Record<FeatureCard['icon'], LucideIcon> = {
-  layers: Layers,
-  shield: Shield,
-  boxes: Boxes,
+const STEP_ICON_MAP: Record<HowItWorksStep['icon'], LucideIcon> = {
+  list: ListChecks,
+  users: Users,
+  flame: Flame,
 };
+
+const STAGGER = ['animate-rise-1', 'animate-rise-2', 'animate-rise-3'];
 
 export const HomePage = () => {
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       <Header />
 
-      <main className="flex-1">
-        <section className="mx-auto w-full max-w-5xl px-6 pb-16 pt-20 sm:px-10 sm:pt-28">
-          <div className="animate-rise inline-flex items-center gap-2 rounded-full border border-border bg-muted/50 px-3 py-1">
-            <span className="size-1.5 rounded-full bg-primary" aria-hidden="true" />
-            <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-              Production-ready starter
-            </span>
-          </div>
-
-          <h1 className="animate-rise animate-rise-1 mt-6 max-w-3xl text-4xl font-bold leading-tight sm:text-6xl">
-            Launch your SaaS on a foundation that&apos;s{' '}
-            <span className="text-primary">already built.</span>
-          </h1>
-
-          <p className="animate-rise animate-rise-2 mt-6 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-            Auth, database, state, and UI wired together and tested — so day one
-            starts at feature one, not setup.
+      <main className="mx-auto w-full max-w-md flex-1 px-4">
+        <section className="pb-10 pt-8">
+          <p className="animate-rise inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+            <Flame className="size-3.5" aria-hidden="true" />
+            {HOME_HERO.eyebrow}
           </p>
 
-          <div className="animate-rise animate-rise-3 mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Button size="lg" asChild className="font-semibold">
+          <h1 className="animate-rise animate-rise-1 mt-5 text-5xl font-extrabold leading-tight">
+            {HOME_HERO.titleLead}
+            <br />
+            {HOME_HERO.titleMiddle}
+            <br />
+            <span className="text-primary">{HOME_HERO.titleAccent}</span>
+          </h1>
+
+          <p className="animate-rise animate-rise-2 mt-5 text-base leading-relaxed text-muted-foreground">
+            {HOME_HERO.description}
+          </p>
+
+          <div className="animate-rise animate-rise-3 mt-8 flex flex-col gap-3">
+            <Button asChild className="h-12 rounded-full text-base font-semibold shadow-sm active:scale-95">
               <Link href="/sign-up">
-                Get started
+                Sign up — it&apos;s free
                 <ArrowRight className="size-4" />
               </Link>
             </Button>
-            <Button variant="outline" size="lg" asChild>
-              <Link href="/sign-in">Sign in</Link>
+            <Button asChild variant="outline" className="h-12 rounded-full text-base font-semibold active:scale-95">
+              <Link href="/sign-in">I already have an account</Link>
             </Button>
           </div>
-
-          <dl className="animate-rise animate-rise-4 mt-14 grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">
-            {HOME_STATS.map(({ value, label }) => (
-              <div key={label} className="bg-background px-5 py-4">
-                <dt className="font-heading text-xl font-bold tracking-tight">{value}</dt>
-                <dd className="mt-0.5 text-sm text-muted-foreground">{label}</dd>
-              </div>
-            ))}
-          </dl>
         </section>
 
-        <section
-          aria-label="What's included"
-          className="mx-auto w-full max-w-5xl px-6 pb-24 sm:px-10"
-        >
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            What&apos;s included
-          </p>
+        <section aria-labelledby="how-it-works" className="pb-12">
+          <h2 id="how-it-works" className="animate-rise text-xl font-extrabold">
+            How it works
+          </h2>
 
-          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {HOME_FEATURES.map((feature) => {
-              const Icon = FEATURE_ICON_MAP[feature.icon];
-
+          <ol className="mt-4 space-y-3">
+            {HOW_IT_WORKS.map((item, index) => {
+              const Icon = STEP_ICON_MAP[item.icon];
               return (
-                <Card
-                  key={feature.title}
-                  className="gap-0 transition-colors duration-300 hover:border-primary/40"
+                <li
+                  key={item.step}
+                  className={cn('animate-rise flex gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm', STAGGER[index])}
                 >
-                  <CardHeader className="pb-3">
-                    <span className="inline-flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <Icon className="size-5" />
-                    </span>
-                    <p className="mt-4 font-mono text-xs uppercase tracking-widest text-muted-foreground">
-                      {feature.label}
-                    </p>
-                  </CardHeader>
-                  <CardContent>
-                    <h3 className="text-lg font-bold">{feature.title}</h3>
-                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                      {feature.description}
-                    </p>
-                  </CardContent>
-                </Card>
+                  <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Icon className="size-5" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <p className="font-mono text-xs font-semibold text-muted-foreground">Step {item.step}</p>
+                    <h3 className="mt-0.5 text-base font-bold">{item.title}</h3>
+                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{item.description}</p>
+                  </div>
+                </li>
               );
             })}
-          </div>
+          </ol>
         </section>
       </main>
 

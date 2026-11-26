@@ -10,11 +10,17 @@ export async function registerService(
   const existing = await userRepository.findByEmail(input.email);
   if (existing) return { data: { error: 'EMAIL_TAKEN' }, status: 409 };
 
+  const interests = Array.from(new Set(input.interests.map((interest) => interest.trim()).filter(Boolean)));
+
   await userRepository.create({
     name: input.fullName,
     email: input.email,
     passwordHash: hashPassword(input.password),
     role: 'user',
+    age: input.age,
+    city: input.city,
+    interests,
+    timezone: input.timezone,
   });
 
   return { data: { message: 'Account created' }, status: 201 };

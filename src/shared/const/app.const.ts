@@ -1,4 +1,4 @@
-export const APP_NAME = 'NextJS Starter';
+export const APP_NAME = '75 Challenge Club';
 
 export const APP_DESCRIPTION =
-  'A production-ready Next.js starter with auth, database, state management, and tests.';
+  'Pick your habits, find a team with the same schedule, and keep each other going for 75 days.';

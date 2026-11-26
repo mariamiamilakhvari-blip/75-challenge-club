@@ -1,7 +1,7 @@
 'use client';
 import { signOut } from 'next-auth/react';
 
-import { useAuthStore } from './useAuthStore';
+import { useAuthStore } from '@/features/auth/hooks/useAuthStore';
 
 export const useLogout = () => {
   const { setUser } = useAuthStore();

@@ -1,41 +1,36 @@
-export type FeatureCard = {
-  label: string;
+export type HowItWorksStep = {
+  step: string;
   title: string;
   description: string;
-  icon: 'layers' | 'shield' | 'boxes';
+  icon: 'list' | 'users' | 'flame';
 };
 
-export const HOME_FEATURES: FeatureCard[] = [
-  {
-    label: 'Framework',
-    title: 'Next.js 16',
-    description:
-      'App Router, React Server Components, and streaming built in. Ship fast on architecture that scales.',
-    icon: 'layers',
-  },
-  {
-    label: 'Auth & data',
-    title: 'NextAuth + MongoDB',
-    description:
-      'Credentials and OAuth with JWT sessions, wired to MongoDB via Mongoose. Secure by default, extensible by design.',
-    icon: 'shield',
-  },
-  {
-    label: 'State & UI',
-    title: 'Zustand + shadcn/ui',
-    description:
-      'Vanilla Zustand stores via context for predictable state. shadcn/ui for a polished, accessible interface.',
-    icon: 'boxes',
-  },
-];
-
-export type HomeStat = {
-  value: string;
-  label: string;
+export const HOME_HERO = {
+  eyebrow: '75-day group challenge',
+  titleLead: '75 days.',
+  titleMiddle: 'Your habits.',
+  titleAccent: 'Your team.',
+  description:
+    'Pick the habits you want to build, match with people on the same schedule, and keep each other going until day 75.',
 };
 
-export const HOME_STATS: HomeStat[] = [
-  { value: 'Day 1', label: 'Auth, DB & UI ready' },
-  { value: '100%', label: 'TypeScript strict' },
-  { value: 'Vitest', label: 'Tests wired in' },
+export const HOW_IT_WORKS: HowItWorksStep[] = [
+  {
+    step: '1',
+    title: 'Pick your challenges',
+    description: 'Water, workouts, reading, sleep — choose presets or add your own, and set which days they count.',
+    icon: 'list',
+  },
+  {
+    step: '2',
+    title: 'Find your team',
+    description: 'Swipe through people with overlapping habits and form a crew of up to 6.',
+    icon: 'users',
+  },
+  {
+    step: '3',
+    title: 'Check in daily',
+    description: 'Tick off today, cheer teammates on, and watch your streak climb to 75.',
+    icon: 'flame',
+  },
 ];

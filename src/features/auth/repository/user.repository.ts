@@ -1,6 +1,9 @@
 import { UserDocument, UserModel } from '@/features/auth/schema/user.schema';
 import { mongo } from '@/shared/lib/mongo';
 
+export type CreateUserInput = Pick<UserDocument, 'name' | 'email' | 'role'> &
+  Partial<Omit<UserDocument, '_id' | 'createdAt' | 'updatedAt' | 'name' | 'email' | 'role'>>;
+
 export const userRepository = {
   async findById(id: string): Promise<UserDocument | null> {
     await mongo.connect();
@@ -19,7 +22,7 @@ export const userRepository = {
     return { items };
   },
 
-  async create(data: Omit<UserDocument, '_id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+  async create(data: CreateUserInput): Promise<string> {
     await mongo.connect();
     const doc = await UserModel.create(data);
     return doc._id.toString();

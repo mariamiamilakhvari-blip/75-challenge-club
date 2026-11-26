@@ -23,12 +23,22 @@ const fakeUser = {
   avatar: undefined,
 };
 
+const signUpInput = {
+  fullName: 'Bob',
+  email: 'bob@example.com',
+  password: 'password123',
+  age: 28,
+  city: 'Tbilisi',
+  interests: ['Yoga', 'Books', 'Yoga'],
+  timezone: 'Asia/Tbilisi',
+};
+
 describe('registerService', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('returns 409 when email already taken', async () => {
     mockRepo.findByEmail.mockResolvedValueOnce(fakeUser as never);
-    const result = await registerService({ fullName: 'Alice', email: 'alice@example.com', password: 'password123' });
+    const result = await registerService({ ...signUpInput, fullName: 'Alice', email: 'alice@example.com' });
     expect(result.status).toBe(409);
     expect(result.data).toEqual({ error: 'EMAIL_TAKEN' });
   });
@@ -36,7 +46,7 @@ describe('registerService', () => {
   it('returns 201 on successful registration', async () => {
     mockRepo.findByEmail.mockResolvedValueOnce(null);
     mockRepo.create.mockResolvedValueOnce('507f1f77bcf86cd799439011');
-    const result = await registerService({ fullName: 'Bob', email: 'bob@example.com', password: 'password123' });
+    const result = await registerService(signUpInput);
     expect(result.status).toBe(201);
     expect(result.data).toEqual({ message: 'Account created' });
   });
@@ -44,8 +54,22 @@ describe('registerService', () => {
   it('creates user with default role "user"', async () => {
     mockRepo.findByEmail.mockResolvedValueOnce(null);
     mockRepo.create.mockResolvedValueOnce('507f1f77bcf86cd799439011');
-    await registerService({ fullName: 'Bob', email: 'bob@example.com', password: 'password123' });
+    await registerService(signUpInput);
     expect(mockRepo.create).toHaveBeenCalledWith(expect.objectContaining({ role: 'user', name: 'Bob' }));
+  });
+
+  it('saves age, city, deduped interests and timezone', async () => {
+    mockRepo.findByEmail.mockResolvedValueOnce(null);
+    mockRepo.create.mockResolvedValueOnce('507f1f77bcf86cd799439011');
+    await registerService(signUpInput);
+    expect(mockRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        age: 28,
+        city: 'Tbilisi',
+        interests: ['Yoga', 'Books'],
+        timezone: 'Asia/Tbilisi',
+      })
+    );
   });
 });
 
