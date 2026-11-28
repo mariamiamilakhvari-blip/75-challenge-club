@@ -1,3 +1,5 @@
+import { BillingSummary } from '@/features/billing/types/billing.types';
+
 export type UserChallenge = {
   key: string;
   title: string;
@@ -22,6 +24,7 @@ export type Profile = {
   missingRequired: string[];
   // saved challenges break current rules (missing required or invalid days)
   needsChallengeFix: boolean;
+  billing: BillingSummary;
 };
 
 export type AboutInput = {

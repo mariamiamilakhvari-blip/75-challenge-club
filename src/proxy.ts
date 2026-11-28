@@ -31,6 +31,7 @@ export const config = {
     '/team/:path*',
     '/today/:path*',
     '/profile/:path*',
+    '/plans/:path*',
     '/sign-in',
     '/sign-up',
   ],

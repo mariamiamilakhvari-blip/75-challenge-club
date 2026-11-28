@@ -8,6 +8,7 @@ import { syncStreak } from '@/features/profile/service/streak.service';
 import { teamRepository } from '@/features/team/repository/team.repository';
 import { CHALLENGE_LENGTH_DAYS, MONTHLY_EXCEPTIONS_ALLOWED } from '@/shared/const/challenge.const';
 import { ServiceResult } from '@/shared/types/common';
+import { subscriptionGuard } from '@/shared/utils/access';
 import { challengeKind, getPreset, isMonthly } from '@/shared/utils/challenge-rules';
 import { todayInTimezone, weekdayIndex } from '@/shared/utils/date';
 import { buildDoneByDate, exceptionsUsedInMonth, firstOfMonth, scheduledKeysFor } from '@/shared/utils/streak';
@@ -20,6 +21,8 @@ async function loadPublishedUser(userId: string): Promise<PublishedUserResult> {
   const user = await profileRepository.findById(userId);
   if (!user) return { error: { data: { error: 'NOT_FOUND' }, status: 404 } };
   if (!user.published) return { error: { data: { error: 'NOT_PUBLISHED' }, status: 403 } };
+  const locked = subscriptionGuard(user);
+  if (locked) return { error: locked };
   return { user };
 }
 
@@ -153,6 +156,8 @@ export async function deleteCheckInService(
 
   const user = await profileRepository.findById(userId);
   if (!user) return { data: { error: 'NOT_FOUND' }, status: 404 };
+  const locked = subscriptionGuard(user);
+  if (locked) return locked;
   if (checkIn.date !== todayInTimezone(user.timezone)) {
     return { data: { error: 'FORBIDDEN' }, status: 403 };
   }

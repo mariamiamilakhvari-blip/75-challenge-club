@@ -1,4 +1,5 @@
 import { UserDocument } from '@/features/auth/schema/user.schema';
+import { billingSummary } from '@/features/billing/service/billing.service';
 import { profileRepository } from '@/features/profile/repository/profile.repository';
 import { syncStreak } from '@/features/profile/service/streak.service';
 import { Profile, UserChallenge } from '@/features/profile/types/profile.types';
@@ -43,6 +44,7 @@ export function toProfile(user: UserDocument, day: number): Profile {
     needsAbout: needsAbout(user),
     missingRequired: missingRequired(user.challenges.map((challenge) => challenge.key)),
     needsChallengeFix: needsChallengeFix(user),
+    billing: billingSummary(user),
   };
 }
 

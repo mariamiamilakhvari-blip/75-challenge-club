@@ -5,6 +5,7 @@ import { teamRepository } from '@/features/team/repository/team.repository';
 import { DiscoverCard } from '@/features/team/types/team.types';
 import { MAX_TEAM_SIZE } from '@/shared/const/challenge.const';
 import { ServiceResult } from '@/shared/types/common';
+import { subscriptionGuard } from '@/shared/utils/access';
 import { getPreset } from '@/shared/utils/challenge-rules';
 
 type ScheduledChallenge = { key: string; days: number[] };
@@ -55,6 +56,8 @@ export async function getDiscoverDeckService(userId: string): Promise<ServiceRes
   const viewer = await profileRepository.findById(userId);
   if (!viewer) return { data: { error: 'NOT_FOUND' }, status: 404 };
   if (!viewer.published) return { data: { error: 'NOT_PUBLISHED' }, status: 403 };
+  const locked = subscriptionGuard(viewer);
+  if (locked) return locked;
 
   const viewerTeam = viewer.teamId ? await teamRepository.findById(viewer.teamId.toString()) : null;
   const teammateIds = (viewerTeam?.members ?? []).map((m) => m.toString());
@@ -92,6 +95,10 @@ export async function getDiscoverDeckService(userId: string): Promise<ServiceRes
 
 export async function skipService(userId: string, targetId: string): Promise<ServiceResult<{ skipped: boolean }>> {
   if (userId === targetId) return { data: { error: 'INVALID_TARGET' }, status: 400 };
+  const viewer = await profileRepository.findById(userId);
+  if (!viewer) return { data: { error: 'NOT_FOUND' }, status: 404 };
+  const locked = subscriptionGuard(viewer);
+  if (locked) return locked;
   await profileRepository.addSkipped(userId, targetId);
   return { data: { skipped: true }, status: 200 };
 }

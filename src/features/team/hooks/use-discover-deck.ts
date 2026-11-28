@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
 import { DiscoverCard } from '@/features/team/types/team.types';
+import { SUBSCRIPTION_REQUIRED } from '@/shared/const/billing.const';
 import { ONBOARDING_ROUTE } from '@/shared/const/routes.const';
 import { http } from '@/shared/lib/http';
 
@@ -11,16 +12,22 @@ export const useDiscoverDeck = () => {
   const [cards, setCards] = useState<DiscoverCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [locked, setLocked] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       setCards(await http.get<DiscoverCard[]>('/discover'));
+      setLocked(false);
     } catch (err) {
       const code = err instanceof Error ? err.message : 'UNKNOWN';
       if (code === 'NOT_PUBLISHED') {
         router.replace(ONBOARDING_ROUTE);
+        return;
+      }
+      if (code === SUBSCRIPTION_REQUIRED) {
+        setLocked(true);
         return;
       }
       setError('Could not load people. Try again.');
@@ -44,5 +51,5 @@ export const useDiscoverDeck = () => {
     }
   }, [load]);
 
-  return { cards, current: cards[0] ?? null, next: cards[1] ?? null, loading, error, advance, resetSkips, reload: load };
+  return { cards, current: cards[0] ?? null, next: cards[1] ?? null, loading, error, locked, advance, resetSkips, reload: load };
 };

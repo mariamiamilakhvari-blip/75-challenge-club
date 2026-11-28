@@ -5,6 +5,7 @@ import { teamRepository } from '@/features/team/repository/team.repository';
 import { ObjectIdSchema } from '@/features/team/validations/team.validation';
 import { MAX_TEAM_SIZE } from '@/shared/const/challenge.const';
 import { ServiceResult } from '@/shared/types/common';
+import { subscriptionGuard } from '@/shared/utils/access';
 
 async function leaveCurrentTeam(userId: string, teamId: string): Promise<void> {
   const team = await teamRepository.findById(teamId);
@@ -28,6 +29,8 @@ export async function joinTeamService(userId: string, targetId: string): Promise
   const viewer = await profileRepository.findById(userId);
   if (!viewer) return { data: { error: 'NOT_FOUND' }, status: 404 };
   if (!viewer.published) return { data: { error: 'NOT_PUBLISHED' }, status: 403 };
+  const locked = subscriptionGuard(viewer);
+  if (locked) return locked;
 
   const target = await profileRepository.findById(targetId);
   if (!target || !target.published) return { data: { error: 'NOT_FOUND' }, status: 404 };

@@ -1,6 +1,8 @@
 'use client';
 import { Loader2 } from 'lucide-react';
 
+import { SubscribeWall } from '@/features/billing/components/subscribe-wall';
+import { TrialBanner } from '@/features/billing/components/trial-banner';
 import { DayCounter } from '@/features/checkin/components/day-counter';
 import { TeammatesStrip } from '@/features/checkin/components/teammates-strip';
 import { TodayHeader } from '@/features/checkin/components/today-header';
@@ -11,9 +13,11 @@ import { useUncheck } from '@/features/checkin/hooks/use-uncheck';
 import { Button } from '@/shared/components/ui/button';
 
 export const TodayScreen = () => {
-  const { view, loading, error, reload, update } = useToday();
+  const { view, loading, error, locked, reload, update } = useToday();
   const { checkIn, error: checkInError } = useCheckIn(update, reload);
   const { uncheck, error: uncheckError } = useUncheck(update, reload);
+
+  if (locked) return <SubscribeWall />;
 
   if (loading || (!view && !error)) {
     return (
@@ -39,6 +43,7 @@ export const TodayScreen = () => {
   return (
     <div className="space-y-6">
       <TodayHeader date={view.date} />
+      <TrialBanner />
       <DayCounter day={view.day} completed={view.completed} />
       {actionError && <p className="text-sm font-medium text-destructive">{actionError}</p>}
       <TodayList

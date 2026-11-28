@@ -1,11 +1,13 @@
 'use client';
-import { AlertCircle, LogOut, MapPin, Pencil } from 'lucide-react';
+import { AlertCircle, CreditCard, LogOut, MapPin, Pencil } from 'lucide-react';
 import Link from 'next/link';
 
 import { useLogout } from '@/features/auth/hooks/use-logout';
+import { BillingStatusLine } from '@/features/billing/components/billing-status-line';
 import { DayLetters } from '@/features/profile/components/day-letters';
 import { useMyProfile } from '@/features/profile/hooks/use-my-profile';
 import { Button } from '@/shared/components/ui/button';
+import { PLANS_ROUTE } from '@/shared/const/billing.const';
 import { CHALLENGE_LENGTH_DAYS } from '@/shared/const/challenge.const';
 import { ONBOARDING_ROUTE } from '@/shared/const/routes.const';
 
@@ -90,6 +92,19 @@ export const ProfileView = () => {
             ))}
           </ul>
         )}
+      </section>
+
+      <section className="animate-rise animate-rise-3 flex items-center justify-between gap-3 rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div className="min-w-0">
+          <h2 className="text-lg font-bold text-foreground">Plan</h2>
+          <BillingStatusLine billing={profile.billing} className="mt-0.5" />
+        </div>
+        <Button asChild variant={profile.billing.hasAccess ? 'outline' : 'default'} size="sm" className="shrink-0 rounded-full font-semibold">
+          <Link href={PLANS_ROUTE}>
+            <CreditCard className="size-3.5" />
+            Plans
+          </Link>
+        </Button>
       </section>
 
       <Button

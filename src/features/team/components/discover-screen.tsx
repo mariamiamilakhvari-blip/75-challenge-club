@@ -1,4 +1,5 @@
 'use client';
+import { SubscribeWall } from '@/features/billing/components/subscribe-wall';
 import { DiscoverEmpty } from '@/features/team/components/discover-empty';
 import { SwipeDeck } from '@/features/team/components/swipe-deck';
 import { useDiscoverDeck } from '@/features/team/hooks/use-discover-deck';
@@ -7,8 +8,10 @@ import { PageHeader } from '@/shared/components/layout/page-header';
 import { Button } from '@/shared/components/ui/button';
 
 export const DiscoverScreen = () => {
-  const { current, next, loading, error, advance, resetSkips, reload } = useDiscoverDeck();
+  const { current, next, loading, error, locked, advance, resetSkips, reload } = useDiscoverDeck();
   const { skip, join, pending, message } = useSwipeActions(advance);
+
+  if (locked) return <SubscribeWall />;
 
   return (
     <>

@@ -33,6 +33,7 @@ type FakeUserInput = {
   skipped?: string[];
   challenges?: { key: string; days: number[] }[];
   createdAt?: string;
+  subscriptionStatus?: string;
 };
 
 function fakeUser(input: FakeUserInput) {
@@ -47,6 +48,7 @@ function fakeUser(input: FakeUserInput) {
     skipped: (input.skipped ?? []).map(oid),
     challenges: (input.challenges ?? []).map((c) => ({ ...c, title: c.key, custom: false })),
     createdAt: new Date(input.createdAt ?? '2026-01-01'),
+    subscriptionStatus: input.subscriptionStatus ?? 'active',
   } as never;
 }
 
@@ -91,6 +93,12 @@ describe('getDiscoverDeckService', () => {
     expect((await getDiscoverDeckService('me')).status).toBe(404);
   });
 
+  it('locks the deck after the trial without a subscription (data untouched)', async () => {
+    mockProfile.findById.mockResolvedValueOnce(fakeUser({ id: 'me', subscriptionStatus: 'expired' }));
+    expect(await getDiscoverDeckService('me')).toEqual({ data: { error: 'SUBSCRIPTION_REQUIRED' }, status: 402 });
+    expect(mockProfile.findPublishedExcept).not.toHaveBeenCalled();
+  });
+
   it('excludes self, skipped and teammates; drops full teams; ranks by score then newest', async () => {
     mockProfile.findById.mockResolvedValueOnce(
       fakeUser({ id: 'me', teamId: 't1', skipped: ['s1'], challenges: [{ key: 'water', days: [0, 1] }, { key: 'read', days: [2] }] })
@@ -122,9 +130,16 @@ describe('skipService / resetSkipsService', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('adds the target to skipped', async () => {
+    mockProfile.findById.mockResolvedValueOnce(fakeUser({ id: 'me' }));
     const result = await skipService('me', 'other');
     expect(mockProfile.addSkipped).toHaveBeenCalledWith('me', 'other');
     expect(result.status).toBe(200);
+  });
+
+  it('returns 402 SUBSCRIPTION_REQUIRED when the trial is over and there is no subscription', async () => {
+    mockProfile.findById.mockResolvedValueOnce(fakeUser({ id: 'me', subscriptionStatus: 'none', createdAt: '2026-01-01' }));
+    expect(await skipService('me', 'other')).toEqual({ data: { error: 'SUBSCRIPTION_REQUIRED' }, status: 402 });
+    expect(mockProfile.addSkipped).not.toHaveBeenCalled();
   });
 
   it('rejects skipping self', async () => {

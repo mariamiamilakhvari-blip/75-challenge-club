@@ -184,6 +184,27 @@ describe('checkin.service', () => {
       expect(res.status).toBe(403);
     });
 
+    it('returns 402 SUBSCRIPTION_REQUIRED after the trial without a subscription', async () => {
+      vi.mocked(profileRepository.findById).mockResolvedValue({
+        ...user,
+        createdAt: new Date('2026-10-01T00:00:00Z'),
+        subscriptionStatus: 'none',
+      } as UserDocument);
+      const res = await createCheckInService(userId.toString(), { challengeKey: 'water' });
+      expect(res).toEqual({ data: { error: 'SUBSCRIPTION_REQUIRED' }, status: 402 });
+      expect(checkInRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('lets paying users check in after the trial', async () => {
+      vi.mocked(profileRepository.findById).mockResolvedValue({
+        ...user,
+        createdAt: new Date('2026-10-01T00:00:00Z'),
+        subscriptionStatus: 'active',
+      } as UserDocument);
+      const res = await createCheckInService(userId.toString(), { challengeKey: 'social' });
+      expect(res.data).toEqual({ error: 'NOT_SCHEDULED_TODAY' });
+    });
+
     it('returns 400 when challenge is not scheduled today', async () => {
       vi.mocked(profileRepository.findById).mockResolvedValue(user);
       const res = await createCheckInService(userId.toString(), { challengeKey: 'social' });

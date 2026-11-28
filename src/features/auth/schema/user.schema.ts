@@ -27,6 +27,19 @@ const UserSchema = new Schema(
     streakStart: { type: String, required: false, default: '' },
     lastEvaluated: { type: String, required: false, default: '' },
     skipped: { type: [Schema.Types.ObjectId], required: true, default: [] },
+    // billing (Dodo Payments); the in-app trial runs from createdAt
+    subscriptionStatus: {
+      type: String,
+      enum: ['none', 'trialing', 'active', 'cancelled', 'expired'],
+      required: true,
+      default: 'none',
+    },
+    subscriptionPlan: { type: String, enum: ['', 'monthly', 'yearly'], required: false, default: '' },
+    subscriptionId: { type: String, required: false, default: '' },
+    dodoCustomerId: { type: String, required: false, default: '' },
+    subscriptionPeriodEnd: { type: Date, required: false, default: null },
+    // timestamp of the last applied webhook event, to ignore out-of-order deliveries
+    subscriptionEventAt: { type: Date, required: false, default: null },
   },
   { timestamps: true }
 );
