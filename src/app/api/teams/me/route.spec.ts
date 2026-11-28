@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/features/team/service/team.service', () => ({
+vi.mock('@/features/team/service/team-board.service', () => ({
   getTeamBoardService: vi.fn(),
 }));
 
@@ -8,7 +8,7 @@ vi.mock('@/shared/lib/session', () => ({
   sessionReader: { currentUserId: vi.fn() },
 }));
 
-import { getTeamBoardService } from '@/features/team/service/team.service';
+import { getTeamBoardService } from '@/features/team/service/team-board.service';
 import { sessionReader } from '@/shared/lib/session';
 
 import { GET } from './route';

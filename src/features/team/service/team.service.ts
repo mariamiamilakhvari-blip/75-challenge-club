@@ -1,15 +1,10 @@
 import { UserDocument } from '@/features/auth/schema/user.schema';
 import { checkInRepository } from '@/features/checkin/repository/checkin.repository';
 import { profileRepository } from '@/features/profile/repository/profile.repository';
-import { syncStreak } from '@/features/profile/service/streak.service';
 import { teamRepository } from '@/features/team/repository/team.repository';
-import { toUserChallenges } from '@/features/team/service/discover.service';
-import { TeamBoard, TeamComment, TeamGridRow } from '@/features/team/types/team.types';
 import { ObjectIdSchema } from '@/features/team/validations/team.validation';
-import { ALL_DAYS, MAX_TEAM_SIZE, MONTHLY_EXCEPTIONS_ALLOWED } from '@/shared/const/challenge.const';
+import { MAX_TEAM_SIZE } from '@/shared/const/challenge.const';
 import { ServiceResult } from '@/shared/types/common';
-import { challengeKind, getPreset } from '@/shared/utils/challenge-rules';
-import { addDays, todayInTimezone, weekdayIndex } from '@/shared/utils/date';
 
 async function leaveCurrentTeam(userId: string, teamId: string): Promise<void> {
   const team = await teamRepository.findById(teamId);
@@ -66,89 +61,21 @@ export async function leaveTeamService(userId: string): Promise<ServiceResult<{ 
   return { data: { left: true }, status: 200 };
 }
 
-function rowLabel(key: string): string | null {
-  const kind = challengeKind(key);
-  if (kind === 'daily') return 'Every day';
-  if (kind === 'monthly') return `Every day · ${MONTHLY_EXCEPTIONS_ALLOWED}/month allowance`;
-  return null;
-}
+type TeamContext = { viewer: UserDocument; teamId: string; memberIds: string[] };
 
-export function buildGrid(viewer: UserDocument, members: UserDocument[]): TeamGridRow[] {
-  return viewer.challenges
-    .filter((c) => members.every((m) => m.challenges.some((mc) => mc.key === c.key)))
-    .map((c) => ({
-      key: c.key,
-      title: getPreset(c.key)?.title ?? c.title,
-      kind: challengeKind(c.key),
-      label: rowLabel(c.key),
-      counts: ALL_DAYS.map(
-        (d) => members.filter((m) => m.challenges.some((mc) => mc.key === c.key && mc.days.includes(d))).length
-      ),
-    }));
-}
+export type TeamContextResult = { ok: true; context: TeamContext } | { ok: false; error: ServiceResult<never> };
 
-function challengeTitle(owner: UserDocument | undefined, key: string): string {
-  return getPreset(key)?.title ?? owner?.challenges.find((c) => c.key === key)?.title ?? key;
-}
-
-async function buildComments(viewerId: string, members: UserDocument[], since: string): Promise<TeamComment[]> {
-  const memberById = new Map(members.map((m) => [m._id.toString(), m]));
-  const checkIns = await checkInRepository.findCommentedByUsersSince([...memberById.keys()], since);
-
-  const nameById = new Map(members.map((m) => [m._id.toString(), m.name]));
-  const unknownJoiners = [...new Set(checkIns.flatMap((c) => c.joiners.map((j) => j.toString())))].filter(
-    (id) => !nameById.has(id)
-  );
-  const extra = unknownJoiners.length > 0 ? await profileRepository.findByIds(unknownJoiners) : [];
-  extra.forEach((u) => nameById.set(u._id.toString(), u.name));
-
-  // exceptions (monthly cheat / drink) are never shown in the feed
-  return checkIns.filter((c) => !c.exception).map((c) => {
-    const ownerId = c.userId.toString();
-    const joinerIds = c.joiners.map((j) => j.toString());
-    return {
-      id: c._id.toString(),
-      userId: ownerId,
-      userName: nameById.get(ownerId) ?? 'Someone',
-      challengeKey: c.challengeKey,
-      challengeTitle: challengeTitle(memberById.get(ownerId), c.challengeKey),
-      comment: c.comment ?? '',
-      date: c.date,
-      joiners: joinerIds.map((id) => ({ id, name: nameById.get(id) ?? 'Someone' })),
-      joinedByMe: joinerIds.includes(viewerId),
-      isMine: ownerId === viewerId,
-    };
-  });
-}
-
-export async function getTeamBoardService(userId: string): Promise<ServiceResult<TeamBoard>> {
+// Loads the viewer and their team; shared by board, plan and proposal services.
+export async function loadTeamContext(userId: string): Promise<TeamContextResult> {
   const viewer = await profileRepository.findById(userId);
-  if (!viewer) return { data: { error: 'NOT_FOUND' }, status: 404 };
-  if (!viewer.teamId) return { data: { error: 'NO_TEAM' }, status: 404 };
+  if (!viewer) return { ok: false, error: { data: { error: 'NOT_FOUND' }, status: 404 } };
+  if (!viewer.teamId) return { ok: false, error: { data: { error: 'NO_TEAM' }, status: 404 } };
 
   const team = await teamRepository.findById(viewer.teamId.toString());
-  if (!team) return { data: { error: 'NO_TEAM' }, status: 404 };
+  if (!team) return { ok: false, error: { data: { error: 'NO_TEAM' }, status: 404 } };
 
-  const docs = await profileRepository.findByIds(team.members.map((m) => m.toString()));
-  const synced = await Promise.all(docs.map((doc) => syncStreak(doc)));
-  const members = synced.map((s) => s.user);
-  const today = todayInTimezone(viewer.timezone);
-
-  const board: TeamBoard = {
-    teamId: team._id.toString(),
-    members: synced.map((s) => ({
-      id: s.user._id.toString(),
-      name: s.user.name,
-      day: s.day,
-      isMe: s.user._id.toString() === userId,
-    })),
-    memberChallenges: members.map((m) => ({ userId: m._id.toString(), name: m.name, challenges: toUserChallenges(m) })),
-    grid: buildGrid(viewer, members),
-    today,
-    todayIndex: weekdayIndex(today),
-    comments: await buildComments(userId, members, addDays(today, -2)),
-  };
-  return { data: board, status: 200 };
+  const memberIds = team.members.map((m) => m.toString());
+  return { ok: true, context: { viewer, teamId: team._id.toString(), memberIds } };
 }
 
 export async function toggleJoinService(userId: string, checkInId: string): Promise<ServiceResult<{ joined: boolean }>> {

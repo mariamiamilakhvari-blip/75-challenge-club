@@ -34,6 +34,11 @@ export const profileRepository = {
     return result.matchedCount > 0;
   },
 
+  async setChallengeDays(id: string, challengeKey: string, days: number[]): Promise<void> {
+    await mongo.connect();
+    await UserModel.updateOne({ _id: id, 'challenges.key': challengeKey }, { $set: { 'challenges.$.days': days } });
+  },
+
   async setAbout(id: string, about: AboutInput): Promise<boolean> {
     await mongo.connect();
     const result = await UserModel.updateOne({ _id: id }, { $set: about });

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getTeamBoardService } from '@/features/team/service/team.service';
+import { getTeamBoardService } from '@/features/team/service/team-board.service';
 import { sessionReader } from '@/shared/lib/session';
 
 export async function GET() {

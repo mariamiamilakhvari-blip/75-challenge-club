@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/features/profile/repository/profile.repository', () => ({
   profileRepository: {
@@ -27,21 +27,15 @@ vi.mock('@/features/checkin/repository/checkin.repository', () => ({
   },
 }));
 
-vi.mock('@/features/profile/service/streak.service', () => ({
-  syncStreak: vi.fn(),
-}));
-
 import { checkInRepository } from '@/features/checkin/repository/checkin.repository';
 import { profileRepository } from '@/features/profile/repository/profile.repository';
-import { syncStreak } from '@/features/profile/service/streak.service';
 import { teamRepository } from '@/features/team/repository/team.repository';
 
-import { getTeamBoardService, joinTeamService, leaveTeamService, toggleJoinService } from './team.service';
+import { joinTeamService, leaveTeamService, loadTeamContext, toggleJoinService } from './team.service';
 
 const mockProfile = vi.mocked(profileRepository);
 const mockTeam = vi.mocked(teamRepository);
 const mockCheckIn = vi.mocked(checkInRepository);
-const mockSync = vi.mocked(syncStreak);
 
 const oid = (id: string) => ({ toString: () => id });
 const CHECKIN_ID = 'a'.repeat(24);
@@ -115,67 +109,6 @@ describe('leaveTeamService', () => {
   });
 });
 
-describe('getTeamBoardService', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-11-25T12:00:00Z'));
-  });
-  afterEach(() => vi.useRealTimers());
-
-  it('returns 404 NO_TEAM without a team', async () => {
-    mockProfile.findById.mockResolvedValueOnce(fakeUser('me', null));
-    expect((await getTeamBoardService('me')).status).toBe(404);
-  });
-
-  it('builds members, intersection grid, and comments', async () => {
-    const everyDay = [0, 1, 2, 3, 4, 5, 6];
-    const me = fakeUser('me', 'T', [
-      { key: 'water', days: everyDay },
-      { key: 'read', days: everyDay },
-      { key: 'workout', days: [0, 1, 2, 4] },
-      { key: 'no-junk', days: everyDay },
-      { key: 'my-own', days: [0] },
-    ]);
-    const mate = fakeUser('mate', 'T', [
-      { key: 'water', days: everyDay },
-      { key: 'workout', days: [1, 2, 4, 5] },
-      { key: 'no-junk', days: everyDay },
-      { key: 'my-own', days: [0, 3] },
-    ]);
-    mockProfile.findById.mockResolvedValueOnce(me);
-    mockTeam.findById.mockResolvedValueOnce(team('T', ['me', 'mate']));
-    mockProfile.findByIds.mockResolvedValueOnce([me, mate]);
-    mockSync.mockImplementation(async (user) => ({ user, today: '2026-11-25', day: 7 }));
-    mockCheckIn.findCommentedByUsersSince.mockResolvedValueOnce([
-      { _id: oid('c1'), userId: oid('mate'), challengeKey: 'water', comment: 'Park 7pm', date: '2026-11-25', joiners: [oid('me')] },
-      { _id: oid('c2'), userId: oid('mate'), challengeKey: 'no-junk', comment: 'Pizza', date: '2026-11-25', exception: true, joiners: [] },
-    ] as never);
-
-    const result = await getTeamBoardService('me');
-    expect(result.status).toBe(200);
-    const board = result.data;
-    expect(board).toMatchObject({
-      teamId: 'T',
-      todayIndex: 2,
-      grid: [
-        { key: 'water', title: 'Drink 2 L of water', kind: 'daily', label: 'Every day', counts: [2, 2, 2, 2, 2, 2, 2] },
-        { key: 'workout', title: 'Work out 45 min', kind: 'scheduled', label: null, counts: [1, 2, 2, 0, 2, 1, 0] },
-        { key: 'no-junk', title: 'No junk food', kind: 'monthly', label: 'Every day · 1/month allowance' },
-        { key: 'my-own', title: 'T-my-own', kind: 'custom', label: null, counts: [2, 0, 0, 1, 0, 0, 0] },
-      ],
-      members: [
-        { id: 'me', day: 7, isMe: true },
-        { id: 'mate', day: 7, isMe: false },
-      ],
-      comments: [{ id: 'c1', userName: 'mate', challengeTitle: 'Drink 2 L of water', joinedByMe: true, isMine: false, joiners: [{ id: 'me', name: 'me' }] }],
-    });
-    const memberChallenges = 'memberChallenges' in board ? board.memberChallenges : [];
-    expect(memberChallenges[0]?.challenges[0]).toMatchObject({ key: 'water', title: 'Drink 2 L of water' });
-    expect(mockCheckIn.findCommentedByUsersSince).toHaveBeenCalledWith(['me', 'mate'], '2026-11-23');
-  });
-});
-
 describe('toggleJoinService', () => {
   beforeEach(() => vi.clearAllMocks());
 
@@ -205,5 +138,23 @@ describe('toggleJoinService', () => {
     mockCheckIn.findById.mockResolvedValueOnce({ userId: oid('o'), joiners: [oid('me')] } as never);
     expect((await toggleJoinService('me', CHECKIN_ID)).data).toEqual({ joined: false });
     expect(mockCheckIn.removeJoiner).toHaveBeenCalledWith(CHECKIN_ID, 'me');
+  });
+});
+
+describe('loadTeamContext', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('returns NO_TEAM when the viewer has no team', async () => {
+    mockProfile.findById.mockResolvedValueOnce(fakeUser('me', null));
+    const result = await loadTeamContext('me');
+    expect(result).toEqual({ ok: false, error: { data: { error: 'NO_TEAM' }, status: 404 } });
+  });
+
+  it('returns the viewer, team id and member ids', async () => {
+    mockProfile.findById.mockResolvedValueOnce(fakeUser('me', 'T'));
+    mockTeam.findById.mockResolvedValueOnce(team('T', ['me', 'mate']));
+    const result = await loadTeamContext('me');
+    expect(result.ok && result.context.teamId).toBe('T');
+    expect(result.ok && result.context.memberIds).toEqual(['me', 'mate']);
   });
 });
