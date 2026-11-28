@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 
 import { GoogleSignInButton } from '@/features/auth/components/google-sign-in-button';
 import { OrDivider } from '@/features/auth/components/or-divider';
+import { PasswordInput } from '@/features/auth/components/password-input';
 import { useLogin } from '@/features/auth/hooks/use-login';
 import { useAuthStore } from '@/features/auth/hooks/useAuthStore';
 import { LoginSchema, LoginType } from '@/features/auth/validations/auth.validation';
@@ -69,8 +70,7 @@ export const LoginForm = () => {
               <FormItem>
                 <FormLabel>Password</FormLabel>
                 <FormControl>
-                  <Input
-                    type="password"
+                  <PasswordInput
                     placeholder="••••••••"
                     autoComplete="current-password"
                     className="h-12 rounded-xl px-4"

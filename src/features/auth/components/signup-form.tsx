@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form';
 import { GoogleSignInButton } from '@/features/auth/components/google-sign-in-button';
 import { InterestPicker } from '@/features/auth/components/interest-picker';
 import { OrDivider } from '@/features/auth/components/or-divider';
+import { PasswordInput } from '@/features/auth/components/password-input';
 import { useRegister } from '@/features/auth/hooks/use-register';
 import { useAuthStore } from '@/features/auth/hooks/useAuthStore';
 import { SignUpSchema, SignUpType } from '@/features/auth/validations/auth.validation';
@@ -103,8 +104,7 @@ export const SignUpForm = () => {
               <FormItem>
                 <FormLabel>Password</FormLabel>
                 <FormControl>
-                  <Input
-                    type="password"
+                  <PasswordInput
                     placeholder="At least 8 characters"
                     autoComplete="new-password"
                     className="h-12 rounded-xl px-4"
