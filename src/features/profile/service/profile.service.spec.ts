@@ -25,6 +25,7 @@ const validChallenges: UserChallengeInput[] = [
   { key: 'read', title: 'Read', custom: false, days: ALL },
   { key: 'workout', title: 'Workout', custom: false, days: [0, 2, 4, 5] },
   { key: 'no-junk', title: 'No junk', custom: false, days: ALL },
+  { key: 'social', title: 'Social', custom: false, days: [5] },
   { key: 'custom-walk-ab12', title: 'Walk the dog', custom: true, days: [6] },
 ];
 
@@ -33,6 +34,7 @@ const savedChallenges = [
   { key: 'read', title: 'Read 10 pages', custom: false, days: ALL },
   { key: 'workout', title: 'Work out 45 min', custom: false, days: [0, 2, 4, 5] },
   { key: 'no-junk', title: 'No junk food', custom: false, days: ALL },
+  { key: 'social', title: 'Social activity', custom: false, days: [5] },
   { key: 'custom-walk-ab12', title: 'Walk the dog', custom: true, days: [6] },
 ];
 
@@ -92,7 +94,7 @@ describe('profile.service', () => {
 
     it('rejects custom keys without custom- prefix', async () => {
       const result = await updateChallengesService(userId, {
-        challenges: withChallenge(4, { key: 'walk-dog', title: 'Walk dog', custom: true, days: [0] }),
+        challenges: withChallenge(5, { key: 'walk-dog', title: 'Walk dog', custom: true, days: [0] }),
       });
       expect(result).toEqual({ data: { error: 'INVALID_CHALLENGE' }, status: 400 });
     });
@@ -107,16 +109,36 @@ describe('profile.service', () => {
 
     it('rejects custom challenges with no days', async () => {
       const result = await updateChallengesService(userId, {
-        challenges: withChallenge(4, { key: 'custom-walk-ab12', title: 'Walk', custom: true, days: [] }),
+        challenges: withChallenge(5, { key: 'custom-walk-ab12', title: 'Walk', custom: true, days: [] }),
       });
       expect(result).toEqual({ data: { error: 'INVALID_DAYS' }, status: 400 });
     });
 
-    it('rejects when fewer than 5 unique challenges remain after dedupe', async () => {
+    it('rejects when a required challenge is missing after dedupe', async () => {
       const result = await updateChallengesService(userId, {
         challenges: withChallenge(1, { key: 'water', title: 'Water', custom: false, days: ALL }),
       });
-      expect(result).toEqual({ data: { error: 'NOT_ENOUGH_CHALLENGES' }, status: 400 });
+      expect(result).toEqual({ data: { error: 'MISSING_REQUIRED' }, status: 400 });
+      expect(profileRepository.setChallenges).not.toHaveBeenCalled();
+    });
+
+    it('rejects when social is dropped even with plenty of optional picks', async () => {
+      const result = await updateChallengesService(userId, {
+        challenges: [
+          ...validChallenges.filter((item) => item.key !== 'social'),
+          { key: 'sleep', title: 'Sleep', custom: false, days: [0, 1, 2, 3, 4] },
+          { key: 'meditate', title: 'Relax', custom: false, days: ALL },
+        ],
+      });
+      expect(result).toEqual({ data: { error: 'MISSING_REQUIRED' }, status: 400 });
+    });
+
+    it('accepts exactly the 5 required challenges with no optional ones', async () => {
+      vi.mocked(profileRepository.findById).mockResolvedValueOnce(baseUser);
+      const result = await updateChallengesService(userId, { challenges: validChallenges.slice(0, 5) });
+      expect(result.status).toBe(200);
+      expect(result.data).toMatchObject({ missingRequired: [], needsChallengeFix: false });
+      expect(profileRepository.setChallenges).toHaveBeenCalledWith(userId, savedChallenges.slice(0, 5));
     });
 
     it('returns 404 when user missing', async () => {
@@ -133,6 +155,7 @@ describe('profile.service', () => {
           { key: 'read', title: 'Read', custom: false, days: [] },
           { key: 'workout', title: 'Workout', custom: false, days: [5, 4, 0, 2] },
           { key: 'no-junk', title: 'No junk', custom: false, days: [3] },
+          { key: 'social', title: 'Hacked', custom: false, days: [5] },
           { key: 'custom-walk-ab12', title: 'Walk the dog', custom: true, days: [6, 6] },
           { key: 'read', title: 'Read', custom: false, days: [2] },
         ],
@@ -149,15 +172,24 @@ describe('profile.service', () => {
       expect(result.status).toBe(404);
     });
 
-    it('returns 400 NOT_ENOUGH_CHALLENGES when fewer than 5 selected', async () => {
+    it('returns 400 MISSING_REQUIRED when a required challenge is missing', async () => {
       vi.mocked(profileRepository.findById).mockResolvedValueOnce({
         ...baseUser,
-        challenges: savedChallenges.slice(0, 4),
+        challenges: savedChallenges.filter((item) => item.key !== 'no-junk'),
       } as UserDocument);
       const result = await publishService(userId);
       expect(result.status).toBe(400);
-      expect(result.data).toEqual({ error: 'NOT_ENOUGH_CHALLENGES' });
+      expect(result.data).toEqual({ error: 'MISSING_REQUIRED' });
       expect(profileRepository.updateById).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 MISSING_REQUIRED when saved days break the rules', async () => {
+      vi.mocked(profileRepository.findById).mockResolvedValueOnce({
+        ...baseUser,
+        challenges: savedChallenges.map((item) => (item.key === 'workout' ? { ...item, days: ALL } : item)),
+      } as UserDocument);
+      const result = await publishService(userId);
+      expect(result.data).toEqual({ error: 'MISSING_REQUIRED' });
     });
 
     it('sets streakStart to today when empty', async () => {
@@ -180,6 +212,34 @@ describe('profile.service', () => {
       } as UserDocument);
       await publishService(userId);
       expect(profileRepository.updateById).toHaveBeenCalledWith(userId, { published: true });
+    });
+  });
+
+  describe('toProfile challenge flags', () => {
+    it('is clean when all required challenges have valid days', () => {
+      expect(toProfile(baseUser, 1)).toMatchObject({ missingRequired: [], needsChallengeFix: false });
+    });
+
+    it('flags old profiles missing required challenges', () => {
+      const old = {
+        ...baseUser,
+        challenges: [
+          { key: 'water', title: 'Drink 2 L of water', custom: false, days: ALL },
+          { key: 'sleep', title: 'Sleep before 12 AM', custom: false, days: [0, 1, 2, 3, 4] },
+        ],
+      } as UserDocument;
+      expect(toProfile(old, 1)).toMatchObject({
+        missingRequired: ['workout', 'no-junk', 'read', 'social'],
+        needsChallengeFix: true,
+      });
+    });
+
+    it('flags a required scheduled challenge with the wrong day count', () => {
+      const old = {
+        ...baseUser,
+        challenges: savedChallenges.map((item) => (item.key === 'social' ? { ...item, days: [5, 6] } : item)),
+      } as UserDocument;
+      expect(toProfile(old, 1)).toMatchObject({ missingRequired: [], needsChallengeFix: true });
     });
   });
 

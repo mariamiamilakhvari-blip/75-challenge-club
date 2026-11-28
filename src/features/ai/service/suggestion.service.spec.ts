@@ -46,20 +46,21 @@ describe('suggestion.service', () => {
     expect(openRouter.chat).not.toHaveBeenCalled();
   });
 
-  it('parses fenced AI output, drops unknown keys, dedupes and normalizes days to the rules', async () => {
+  it('parses fenced AI output, keeps only optional keys, dedupes and normalizes days to the rules', async () => {
     vi.mocked(openRouter.chat).mockResolvedValueOnce(
       [
         'Sure! Here you go:',
         '```json',
         JSON.stringify({
           suggestions: [
-            { key: 'workout', days: [4, 0, 2, 2, 9, -1], reason: 'You love yoga {flow}' },
+            { key: 'skill', days: [4, 0, 2, 2, 9, -1], reason: 'You love yoga {flow}' },
             { key: 'surfing', days: [1], reason: 'nope' },
-            { key: 'workout', days: [1], reason: 'dupe' },
-            { key: 'read', days: [], reason: 'daily ignores days' },
-            { key: 'sleep', days: [6, 0, 1, 2, 3], reason: 'five nights' },
-            { key: 'water', days: [0, 1, 2, 3, 4, 5, 6], reason: 'x'.repeat(200) },
-            { key: 'social' },
+            { key: 'skill', days: [1], reason: 'dupe' },
+            { key: 'water', days: [0, 1, 2, 3, 4, 5, 6], reason: 'required, dropped' },
+            { key: 'workout', days: [0, 2, 4, 5], reason: 'required, dropped' },
+            { key: 'meditate', days: [], reason: 'daily ignores days' },
+            { key: 'sleep', days: [6, 0, 1, 2, 3], reason: 'x'.repeat(200) },
+            { key: 'doomscroll', days: [], reason: 'over the max' },
           ],
         }),
         '```',
@@ -70,16 +71,22 @@ describe('suggestion.service', () => {
     expect(result.status).toBe(200);
     expect(result.data).toMatchObject({ source: 'ai' });
     const data = result.data as { suggestions: { key: string; title: string; days: number[]; reason: string }[] };
-    expect(data.suggestions.map((item) => item.key)).toEqual(['workout', 'read', 'sleep', 'water']);
+    expect(data.suggestions.map((item) => item.key)).toEqual(['skill', 'meditate', 'sleep']);
     expect(data.suggestions[0]).toEqual({
-      key: 'workout',
-      title: 'Work out 45 min',
-      days: [0, 2, 4, 5],
+      key: 'skill',
+      title: 'Learn a new skill 30 min',
+      days: [0, 1, 3, 4],
       reason: 'You love yoga {flow}',
     });
     expect(data.suggestions[1].days).toEqual([0, 1, 2, 3, 4, 5, 6]);
     expect(data.suggestions[2].days).toEqual([0, 1, 2, 3, 6]);
-    expect(data.suggestions[3].reason.length).toBeLessThanOrEqual(80);
+    expect(data.suggestions[2].reason.length).toBeLessThanOrEqual(80);
+  });
+
+  it('falls back when AI output only names required challenges', async () => {
+    vi.mocked(openRouter.chat).mockResolvedValueOnce('{"suggestions":[{"key":"water","days":[],"reason":"x"}]}');
+    const result = await suggestChallengesService(userId);
+    expect(result.data).toMatchObject({ source: 'fallback' });
   });
 
   it('falls back when AI returns null', async () => {
@@ -88,7 +95,7 @@ describe('suggestion.service', () => {
     expect(result.status).toBe(200);
     const data = result.data as { source: string; suggestions: { key: string }[] };
     expect(data.source).toBe('fallback');
-    expect(data.suggestions.map((item) => item.key)).toEqual(['workout', 'read', 'water', 'sleep', 'meditate']);
+    expect(data.suggestions.map((item) => item.key)).toEqual(['meditate', 'doomscroll', 'sleep']);
   });
 
   it('falls back when AI output has no valid suggestions', async () => {
@@ -104,7 +111,7 @@ describe('suggestion.service', () => {
   });
 
   it('caches AI results per user', async () => {
-    vi.mocked(openRouter.chat).mockResolvedValue('{"suggestions":[{"key":"read","days":[0,1],"reason":"Books!"}]}');
+    vi.mocked(openRouter.chat).mockResolvedValue('{"suggestions":[{"key":"meditate","days":[0,1],"reason":"Calm!"}]}');
     await suggestChallengesService(userId);
     const second = await suggestChallengesService(userId);
     expect(openRouter.chat).toHaveBeenCalledTimes(1);
@@ -118,7 +125,10 @@ describe('suggestion.service', () => {
     expect(user.content).toContain('Tbilisi');
     expect(user.content).toContain('no-alcohol: No alcohol');
     expect(user.content).toContain('exactly 4 weekdays');
-    expect(user.content).toContain('Pick 5 challenges');
+    expect(user.content).toContain('Pick 2 extra optional challenges');
+    expect(user.content).toContain('Do NOT suggest them');
+    expect(user.content).not.toContain('- workout:');
+    expect(user.content).not.toContain('- water:');
   });
 
   it('extracts the first balanced JSON object', () => {
@@ -126,17 +136,16 @@ describe('suggestion.service', () => {
     expect(extractJson('no json here')).toBeNull();
   });
 
-  it('fallback always has at least 5 picks including water and sleep', () => {
+  it('fallback has 2–3 optional picks including sleep, never a required one', () => {
     const keys = fallbackSuggestions([]).map((item) => item.key);
-    expect(keys).toEqual(['water', 'sleep', 'workout', 'read', 'meditate']);
+    expect(keys).toEqual(['sleep', 'meditate']);
     const many = fallbackSuggestions(['Fitness', 'Books', 'Mindfulness', 'Tech', 'Travel']).map((item) => item.key);
-    expect(many).toHaveLength(6);
-    expect(many).toEqual(expect.arrayContaining(['water', 'sleep']));
+    expect(many).toEqual(['doomscroll', 'meditate', 'sleep']);
+    for (const key of many) expect(['water', 'workout', 'no-junk', 'read', 'social']).not.toContain(key);
   });
 
   it('fallback days follow the challenge rules', () => {
     const byKey = Object.fromEntries(fallbackSuggestions(['Tech']).map((item) => [item.key, item.days]));
-    expect(byKey.water).toEqual([0, 1, 2, 3, 4, 5, 6]);
     expect(byKey.sleep).toHaveLength(5);
     expect(byKey.skill).toHaveLength(4);
   });

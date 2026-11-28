@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { challengeKind, exceptionNoun, initialDays, isMonthly, normalizeDays } from '@/shared/utils/challenge-rules';
+import {
+  challengeKind,
+  exceptionNoun,
+  initialDays,
+  isMonthly,
+  isRequired,
+  missingRequired,
+  normalizeDays,
+} from '@/shared/utils/challenge-rules';
 
 describe('challenge rules', () => {
   it('classifies kinds', () => {
@@ -42,5 +50,16 @@ describe('challenge rules', () => {
     expect(initialDays('social')).toHaveLength(1);
     expect(initialDays('water')).toHaveLength(7);
     expect(initialDays('custom-x')).toHaveLength(7);
+  });
+
+  it('knows the five required challenges', () => {
+    expect(['water', 'workout', 'no-junk', 'read', 'social'].every(isRequired)).toBe(true);
+    expect(isRequired('sleep')).toBe(false);
+    expect(isRequired('custom-guitar-ab12')).toBe(false);
+  });
+
+  it('lists missing required keys in display order', () => {
+    expect(missingRequired(['water', 'workout', 'no-junk', 'read', 'social', 'sleep'])).toEqual([]);
+    expect(missingRequired(['read', 'sleep'])).toEqual(['water', 'workout', 'no-junk', 'social']);
   });
 });

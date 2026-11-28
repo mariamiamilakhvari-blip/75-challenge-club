@@ -18,6 +18,10 @@ export type Profile = {
   teamId: string | null;
   day: number;
   needsAbout: boolean;
+  // required challenge keys the saved profile lacks
+  missingRequired: string[];
+  // saved challenges break current rules (missing required or invalid days)
+  needsChallengeFix: boolean;
 };
 
 export type AboutInput = {

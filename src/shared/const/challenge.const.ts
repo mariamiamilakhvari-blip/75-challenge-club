@@ -17,8 +17,6 @@ export const CHALLENGE_LENGTH_DAYS = 75;
 
 export const MAX_TEAM_SIZE = 6;
 
-export const MIN_CHALLENGES = 5;
-
 export const MAX_CHALLENGES = 15;
 
 export const MAX_COMMENT_LENGTH = 140;
@@ -69,9 +67,18 @@ export const CHALLENGES: PresetChallenge[] = [
     requiredDays: 1,
     defaultDays: [5],
   },
-  { key: 'no-junk', title: 'No junk food', hint: 'One cheat allowed per month', kind: 'monthly', exceptionNoun: 'cheat' },
+  {
+    key: 'no-junk',
+    title: 'No junk food',
+    hint: 'One cheat allowed per month',
+    kind: 'monthly',
+    exceptionNoun: 'cheat',
+  },
   { key: 'no-alcohol', title: 'No alcohol', hint: 'One drink allowed per month', kind: 'monthly', exceptionNoun: 'drink' },
 ];
+
+// every user must have these (cannot be unselected); order = "Required" section order
+export const REQUIRED_CHALLENGE_KEYS = ['water', 'workout', 'no-junk', 'read', 'social'];
 
 export const CHALLENGE_KIND_LABELS: Record<ChallengeKind, string> = {
   daily: 'Daily',

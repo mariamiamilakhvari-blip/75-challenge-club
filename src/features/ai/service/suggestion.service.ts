@@ -15,7 +15,7 @@ import {
 } from '@/shared/const/suggestion.const';
 import { ChatMessage, openRouter } from '@/shared/lib/openrouter';
 import { ServiceResult } from '@/shared/types/common';
-import { initialDays, normalizeDays } from '@/shared/utils/challenge-rules';
+import { initialDays, isRequired, normalizeDays } from '@/shared/utils/challenge-rules';
 
 type CacheEntry = { result: SuggestionsResult; expiresAt: number };
 
@@ -25,7 +25,11 @@ export function clearSuggestionCache(): void {
   cache.clear();
 }
 
-const titleOf = (key: string): string | null => CHALLENGES.find((item) => item.key === key)?.title ?? null;
+const OPTIONAL_CHALLENGES = CHALLENGES.filter((item) => !isRequired(item.key));
+
+// only optional challenges can be suggested — required ones are always on
+const titleOf = (key: string): string | null =>
+  OPTIONAL_CHALLENGES.find((item) => item.key === key)?.title ?? null;
 
 function truncate(text: string): string {
   const clean = text.replace(/\s+/g, ' ').trim();
@@ -41,7 +45,10 @@ function describeRule(preset: PresetChallenge): string {
 }
 
 export function buildPrompt(user: UserDocument): ChatMessage[] {
-  const presets = CHALLENGES.map((item) => `- ${item.key}: ${item.title} (${item.hint}) [${describeRule(item)}]`).join(
+  const required = CHALLENGES.filter((item) => isRequired(item.key))
+    .map((item) => item.title)
+    .join(', ');
+  const presets = OPTIONAL_CHALLENGES.map((item) => `- ${item.key}: ${item.title} (${item.hint}) [${describeRule(item)}]`).join(
     '\n'
   );
   const interests = user.interests.length > 0 ? user.interests.join(', ') : 'not specified';
@@ -56,7 +63,9 @@ export function buildPrompt(user: UserDocument): ChatMessage[] {
   const userPrompt = [
     `User profile — interests: ${interests}; age: ${age}; city: ${city}.`,
     '',
-    `Pick ${MIN_SUGGESTIONS} challenges for this user (never fewer than ${MIN_SUGGESTIONS}, at most ${MAX_SUGGESTIONS}), using ONLY these preset keys:`,
+    `Every user already does these required challenges: ${required}. Do NOT suggest them.`,
+    `Pick ${MIN_SUGGESTIONS} extra optional challenges for this user ` +
+      `(never fewer than ${MIN_SUGGESTIONS}, at most ${MAX_SUGGESTIONS}), using ONLY these preset keys:`,
     presets,
     '',
     'Days are weekday integers where 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun. Follow each rule exactly:',
@@ -67,7 +76,7 @@ export function buildPrompt(user: UserDocument): ChatMessage[] {
     `Give a short, warm reason (max ${MAX_REASON_LENGTH} characters) tied to their interests.`,
     '',
     'Respond exactly in this shape:',
-    '{"suggestions":[{"key":"water","days":[0,1,2,3,4,5,6],"reason":"..."},{"key":"workout","days":[0,2,4,5],"reason":"..."}]}',
+    '{"suggestions":[{"key":"meditate","days":[0,1,2,3,4,5,6],"reason":"..."},{"key":"skill","days":[0,1,3,4],"reason":"..."}]}',
   ].join('\n');
 
   return [
@@ -140,7 +149,9 @@ export function fallbackSuggestions(interests: string[]): ChallengeSuggestion[] 
     const key = INTEREST_CHALLENGE_MAP[interest];
     if (key && !keys.includes(key)) keys.push(key);
   }
-  const picked = keys.slice(0, MAX_SUGGESTIONS - ALWAYS_SUGGESTED_KEYS.length);
+  const picked = keys
+    .filter((key) => !ALWAYS_SUGGESTED_KEYS.includes(key))
+    .slice(0, MAX_SUGGESTIONS - ALWAYS_SUGGESTED_KEYS.length);
   const ordered = [...picked, ...ALWAYS_SUGGESTED_KEYS.filter((key) => !picked.includes(key))];
   for (const key of FALLBACK_FILLER_KEYS) {
     if (ordered.length >= MIN_SUGGESTIONS) break;

@@ -1,5 +1,5 @@
 'use client';
-import { LogOut, MapPin, Pencil } from 'lucide-react';
+import { AlertCircle, LogOut, MapPin, Pencil } from 'lucide-react';
 import Link from 'next/link';
 
 import { useLogout } from '@/features/auth/hooks/use-logout';
@@ -64,6 +64,20 @@ export const ProfileView = () => {
             </Link>
           </Button>
         </div>
+        {profile.needsChallengeFix && profile.challenges.length > 0 && (
+          <Link
+            href={ONBOARDING_ROUTE}
+            className="mb-3 flex items-start gap-2 rounded-xl bg-primary/10 p-3 text-sm font-medium text-foreground transition-colors hover:bg-primary/15"
+          >
+            <AlertCircle className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+            <span>
+              {profile.missingRequired.length > 0
+                ? 'Some required challenges are missing.'
+                : 'Some challenges have the wrong number of days.'}{' '}
+              <span className="font-semibold text-primary">Fix in Edit challenges</span>
+            </span>
+          </Link>
+        )}
         {profile.challenges.length === 0 ? (
           <p className="text-sm text-muted-foreground">No challenges yet — pick a few to get started.</p>
         ) : (

@@ -1,31 +1,32 @@
-export const MIN_SUGGESTIONS = 5;
+// suggestions cover optional challenges only; the 5 required ones are always included
+export const MIN_SUGGESTIONS = 2;
 
-export const MAX_SUGGESTIONS = 6;
+export const MAX_SUGGESTIONS = 3;
 
 export const MAX_REASON_LENGTH = 80;
 
 export const SUGGESTION_CACHE_TTL_MS = 10 * 60 * 1000;
 
-export const ALWAYS_SUGGESTED_KEYS = ['water', 'sleep'];
+export const ALWAYS_SUGGESTED_KEYS = ['sleep'];
 
-export const FALLBACK_FILLER_KEYS = ['workout', 'read', 'meditate', 'doomscroll', 'skill'];
+export const FALLBACK_FILLER_KEYS = ['meditate', 'doomscroll', 'skill', 'no-alcohol'];
 
 export const INTEREST_CHALLENGE_MAP: Record<string, string> = {
-  Fitness: 'workout',
-  Yoga: 'workout',
-  Running: 'workout',
-  Dancing: 'workout',
-  Books: 'read',
+  Fitness: 'sleep',
+  Running: 'sleep',
+  Yoga: 'meditate',
+  Dancing: 'meditate',
   Mindfulness: 'meditate',
+  Nature: 'meditate',
+  Books: 'doomscroll',
+  Movies: 'doomscroll',
   Languages: 'skill',
   Tech: 'skill',
   Art: 'skill',
   Music: 'skill',
-  Movies: 'doomscroll',
-  Cooking: 'no-junk',
-  Travel: 'social',
-  Volunteering: 'social',
-  Nature: 'meditate',
+  Cooking: 'no-alcohol',
+  Travel: 'skill',
+  Volunteering: 'doomscroll',
 };
 
 export const FALLBACK_REASONS: Record<string, string> = {
@@ -35,8 +36,8 @@ export const FALLBACK_REASONS: Record<string, string> = {
   'no-junk': 'Pairs well with cooking your own meals.',
   'no-alcohol': 'A clear head makes every other habit easier.',
   social: 'One offline plan a week keeps you connected.',
-  sleep: 'Good sleep powers every other challenge.',
-  doomscroll: 'Frees up time for the things you enjoy.',
+  sleep: 'Good sleep powers every other challenge — and your workouts.',
+  doomscroll: 'Less scrolling, more time for the things you enjoy.',
   meditate: 'Fifteen minutes of body relaxation to unwind.',
   skill: 'Thirty focused minutes on what you are curious about.',
 };

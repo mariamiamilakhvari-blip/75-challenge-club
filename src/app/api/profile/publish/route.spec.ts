@@ -17,11 +17,11 @@ describe('POST /api/profile/publish', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns 400 NOT_ENOUGH_CHALLENGES from service', async () => {
+  it('returns 400 MISSING_REQUIRED from service', async () => {
     vi.mocked(sessionReader.currentUserId).mockResolvedValueOnce('507f1f77bcf86cd799439011');
-    vi.mocked(publishService).mockResolvedValueOnce({ data: { error: 'NOT_ENOUGH_CHALLENGES' }, status: 400 });
+    vi.mocked(publishService).mockResolvedValueOnce({ data: { error: 'MISSING_REQUIRED' }, status: 400 });
     const res = await POST();
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: 'NOT_ENOUGH_CHALLENGES' });
+    expect(await res.json()).toEqual({ error: 'MISSING_REQUIRED' });
   });
 });

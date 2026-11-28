@@ -7,9 +7,11 @@ import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { useChallengeSuggestions } from '@/features/ai/hooks/use-challenge-suggestions';
 import { ChallengeSuggestion } from '@/features/ai/types/suggestion.types';
 import { ChallengeCard } from '@/features/profile/components/challenge-card';
+import { ChallengeFixNotice } from '@/features/profile/components/challenge-fix-notice';
 import { ChallengeSection } from '@/features/profile/components/challenge-section';
 import { CustomChallengeInput } from '@/features/profile/components/custom-challenge-input';
 import { PublishBar } from '@/features/profile/components/publish-bar';
+import { RequiredChallengesSection } from '@/features/profile/components/required-challenges-section';
 import { useMyProfile } from '@/features/profile/hooks/use-my-profile';
 import { usePublish } from '@/features/profile/hooks/use-publish';
 import { useSaveChallenges } from '@/features/profile/hooks/use-save-challenges';
@@ -20,24 +22,15 @@ import {
 } from '@/features/profile/validations/profile.validation';
 import {
   ALL_DAYS,
-  CHALLENGE_KIND_LABELS,
   CHALLENGES,
-  ChallengeKind,
   MAX_CHALLENGES,
-  MIN_CHALLENGES,
   PresetChallenge,
 } from '@/shared/const/challenge.const';
-import { getPreset, initialDays, normalizeDays } from '@/shared/utils/challenge-rules';
+import { getPreset, initialDays, isRequired, missingRequired, normalizeDays } from '@/shared/utils/challenge-rules';
 
 const SLUG_MAX_LENGTH = 40;
 
-const SECTION_DESCRIPTIONS: Record<ChallengeKind, string> = {
-  daily: 'Every day, all 75 days.',
-  scheduled: 'Choose which days of the week they count.',
-  monthly: 'Follow every day — one exception allowed each month.',
-};
-
-const SECTION_ORDER: ChallengeKind[] = ['daily', 'scheduled', 'monthly'];
+const OPTIONAL_PRESETS = CHALLENGES.filter((preset) => !isRequired(preset.key));
 
 const customKey = (title: string): string => {
   const slug =
@@ -58,6 +51,15 @@ const toFormChallenge = (challenge: UserChallenge): UserChallenge => ({
   days: normalizeDays(challenge.key, challenge.days) ?? [...challenge.days],
 });
 
+// Saved challenges plus any required ones the profile is missing (added at the top).
+const toFormChallenges = (saved: UserChallenge[]): UserChallenge[] => {
+  const added = missingRequired(saved.map((challenge) => challenge.key)).flatMap((key) => {
+    const preset = getPreset(key);
+    return preset ? [{ key, title: preset.title, custom: false, days: initialDays(key) }] : [];
+  });
+  return [...added, ...saved.map(toFormChallenge)];
+};
+
 const startingDays = (preset: PresetChallenge, suggestion?: ChallengeSuggestion): number[] => {
   if (preset.kind === 'scheduled' && suggestion && suggestion.days.length === preset.requiredDays) {
     return normalizeDays(preset.key, suggestion.days) ?? initialDays(preset.key);
@@ -66,9 +68,7 @@ const startingDays = (preset: PresetChallenge, suggestion?: ChallengeSuggestion)
 };
 
 const submitHint = (challenges: UserChallenge[]): string | null => {
-  if (challenges.length < MIN_CHALLENGES) {
-    return `Select at least ${MIN_CHALLENGES} challenges (${challenges.length}/${MIN_CHALLENGES})`;
-  }
+  if (missingRequired(challenges.map((challenge) => challenge.key)).length > 0) return 'Add the required challenges';
   const invalid = challenges.find((challenge) => normalizeDays(challenge.key, challenge.days) === null);
   return invalid ? `Pick days for ${invalid.title}` : null;
 };
@@ -88,11 +88,13 @@ export const ChallengePicker = () => {
   const values = useWatch({ control: form.control, name: 'challenges' }) ?? [];
 
   useEffect(() => {
-    if (profile) form.reset({ challenges: profile.challenges.map(toFormChallenge) });
+    if (profile) form.reset({ challenges: toFormChallenges(profile.challenges) });
   }, [profile, form]);
 
   const suggestionByKey = new Map(
-    (suggestionsError ? [] : suggestions).map((suggestion) => [suggestion.key, suggestion])
+    (suggestionsError ? [] : suggestions)
+      .filter((suggestion) => !isRequired(suggestion.key))
+      .map((suggestion) => [suggestion.key, suggestion])
   );
   const published = profile?.published ?? false;
   const full = fields.length >= MAX_CHALLENGES;
@@ -108,6 +110,7 @@ export const ChallengePicker = () => {
   };
 
   const togglePreset = (preset: PresetChallenge) => {
+    if (isRequired(preset.key)) return;
     const index = indexOfKey(preset.key);
     if (index >= 0) {
       remove(index);
@@ -156,31 +159,33 @@ export const ChallengePicker = () => {
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pb-24">
-      {SECTION_ORDER.map((kind) => (
-        <ChallengeSection key={kind} title={CHALLENGE_KIND_LABELS[kind]} description={SECTION_DESCRIPTIONS[kind]}>
-          {CHALLENGES.filter((preset) => preset.kind === kind).map((preset) => {
-            const index = indexOfKey(preset.key);
-            const suggestion = suggestionByKey.get(preset.key);
-            return (
-              <ChallengeCard
-                key={preset.key}
-                title={preset.title}
-                hint={preset.hint}
-                kind={preset.kind}
-                selected={index >= 0}
-                days={values[index]?.days ?? []}
-                requiredDays={preset.requiredDays}
-                suggested={Boolean(suggestion)}
-                reason={suggestion?.reason}
-                onToggleSelected={() => togglePreset(preset)}
-                onToggleDay={(day) => toggleDay(index, day, preset.requiredDays)}
-              />
-            );
-          })}
-        </ChallengeSection>
-      ))}
+      {profile?.needsChallengeFix && profile.challenges.length > 0 && <ChallengeFixNotice missing={profile.missingRequired} />}
 
-      <ChallengeSection title="Custom" description="Your own challenges — pick any days you like.">
+      <RequiredChallengesSection
+        challenges={values}
+        onToggleDay={(index, day, max) => toggleDay(index, day, max)}
+      />
+
+      <ChallengeSection title="Add more (optional)" description="Pick any extras — or none.">
+        {OPTIONAL_PRESETS.map((preset) => {
+          const index = indexOfKey(preset.key);
+          const suggestion = suggestionByKey.get(preset.key);
+          return (
+            <ChallengeCard
+              key={preset.key}
+              title={preset.title}
+              hint={preset.hint}
+              kind={preset.kind}
+              selected={index >= 0}
+              days={values[index]?.days ?? []}
+              requiredDays={preset.requiredDays}
+              suggested={Boolean(suggestion)}
+              reason={suggestion?.reason}
+              onToggleSelected={() => togglePreset(preset)}
+              onToggleDay={(day) => toggleDay(index, day, preset.requiredDays)}
+            />
+          );
+        })}
         {customFields.map(({ field, index }) => (
           <ChallengeCard
             key={field.id}

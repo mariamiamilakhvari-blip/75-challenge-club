@@ -3,7 +3,6 @@ import { AboutYouForm } from '@/features/profile/components/about-you-form';
 import { ChallengePicker } from '@/features/profile/components/challenge-picker';
 import { useMyProfile } from '@/features/profile/hooks/use-my-profile';
 import { PageHeader } from '@/shared/components/layout/page-header';
-import { MIN_CHALLENGES } from '@/shared/const/challenge.const';
 
 export const OnboardingFlow = () => {
   const { profile, loading } = useMyProfile();
@@ -28,7 +27,7 @@ export const OnboardingFlow = () => {
     <>
       <PageHeader
         title="Pick your challenges"
-        subtitle={`Pick at least ${MIN_CHALLENGES}. Daily ones run every day; scheduled ones count on the days you choose.`}
+        subtitle="Five challenges everyone does together — set their days, then add more if you like."
       />
       <ChallengePicker />
     </>

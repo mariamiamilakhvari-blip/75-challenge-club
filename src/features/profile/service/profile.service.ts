@@ -3,9 +3,8 @@ import { profileRepository } from '@/features/profile/repository/profile.reposit
 import { syncStreak } from '@/features/profile/service/streak.service';
 import { Profile, UserChallenge } from '@/features/profile/types/profile.types';
 import { AboutYouType, UpdateChallengesType } from '@/features/profile/validations/profile.validation';
-import { MIN_CHALLENGES } from '@/shared/const/challenge.const';
 import { ServiceResult } from '@/shared/types/common';
-import { getPreset, normalizeDays } from '@/shared/utils/challenge-rules';
+import { getPreset, missingRequired, normalizeDays } from '@/shared/utils/challenge-rules';
 import { todayInTimezone } from '@/shared/utils/date';
 import { displayDay } from '@/shared/utils/streak';
 
@@ -15,6 +14,12 @@ function needsAbout(user: UserDocument): boolean {
   const ageMissing = user.age === null || user.age === undefined;
   const cityMissing = !user.city || user.city.trim() === '';
   return ageMissing || cityMissing || user.interests.length === 0;
+}
+
+// Saved challenges that break the current rules: a required one is missing or days are invalid.
+function needsChallengeFix(user: UserDocument): boolean {
+  if (missingRequired(user.challenges.map((challenge) => challenge.key)).length > 0) return true;
+  return user.challenges.some((challenge) => normalizeDays(challenge.key, [...challenge.days]) === null);
 }
 
 export function toProfile(user: UserDocument, day: number): Profile {
@@ -36,6 +41,8 @@ export function toProfile(user: UserDocument, day: number): Profile {
     teamId: user.teamId ? user.teamId.toString() : null,
     day,
     needsAbout: needsAbout(user),
+    missingRequired: missingRequired(user.challenges.map((challenge) => challenge.key)),
+    needsChallengeFix: needsChallengeFix(user),
   };
 }
 
@@ -43,7 +50,7 @@ function currentDay(user: UserDocument): number {
   return displayDay(user.streakStart ?? '', todayInTimezone(user.timezone));
 }
 
-type NormalizeError = 'INVALID_CHALLENGE' | 'INVALID_DAYS' | 'NOT_ENOUGH_CHALLENGES';
+type NormalizeError = 'INVALID_CHALLENGE' | 'INVALID_DAYS' | 'MISSING_REQUIRED';
 
 type NormalizeResult = { ok: true; challenges: UserChallenge[] } | { ok: false; error: NormalizeError };
 
@@ -66,7 +73,9 @@ function normalizeChallenges(input: UpdateChallengesType): NormalizeResult {
     seen.add(challenge.key);
   }
 
-  if (challenges.length < MIN_CHALLENGES) return { ok: false, error: 'NOT_ENOUGH_CHALLENGES' };
+  if (missingRequired(challenges.map((challenge) => challenge.key)).length > 0) {
+    return { ok: false, error: 'MISSING_REQUIRED' };
+  }
   return { ok: true, challenges };
 }
 
@@ -90,14 +99,16 @@ export async function updateChallengesService(
   if (!user) return { data: { error: 'NOT_FOUND' }, status: 404 };
 
   await profileRepository.setChallenges(userId, challenges);
-  return { data: { ...toProfile(user, currentDay(user)), challenges }, status: 200 };
+  // challenges were just validated against the current rules, so nothing needs fixing
+  const profile = { ...toProfile(user, currentDay(user)), challenges, missingRequired: [], needsChallengeFix: false };
+  return { data: profile, status: 200 };
 }
 
 export async function publishService(userId: string): Promise<ServiceResult<Profile>> {
   const user = await profileRepository.findById(userId);
   if (!user) return { data: { error: 'NOT_FOUND' }, status: 404 };
-  if (user.challenges.length < MIN_CHALLENGES) {
-    return { data: { error: 'NOT_ENOUGH_CHALLENGES' }, status: 400 };
+  if (needsChallengeFix(user)) {
+    return { data: { error: 'MISSING_REQUIRED' }, status: 400 };
   }
 
   const changes = user.streakStart

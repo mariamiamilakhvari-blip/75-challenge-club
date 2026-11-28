@@ -7,8 +7,8 @@ Help new users pick a good starter set of challenges and weekdays from their int
 Onboarding only. No motivation messages, recaps, or chat.
 
 ## Behaviour
-- 5–6 picks from the 10 preset challenges only, each with a short reason tied to interests.
-- Shown as a "✨ Suggested" badge on matching cards in the main list (no separate panel, no auto-select).
+- 2–3 picks from the 5 optional preset challenges only (never required ones), each with a short reason tied to interests.
+- Shown as a "✨ Suggested" badge on matching optional cards (no separate panel, no auto-select).
 - Selecting a suggested scheduled card prefills the AI's days when they match the required count.
 - Fallback when AI fails or returns junk: deterministic interest → challenge map (always includes water + sleep), caption "Based on your interests".
 

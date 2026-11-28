@@ -1,5 +1,5 @@
 'use client';
-import { Check, Info, X } from 'lucide-react';
+import { Check, Info, Lock, X } from 'lucide-react';
 
 import { DayToggles } from '@/features/profile/components/day-toggles';
 import { ALL_DAYS, ChallengeKind } from '@/shared/const/challenge.const';
@@ -12,6 +12,8 @@ type ChallengeCardProps = {
   hint?: string;
   kind: ChallengeKind | 'custom';
   selected: boolean;
+  // locked in: always selected, cannot be removed
+  required?: boolean;
   days: number[];
   requiredDays?: number;
   suggested?: boolean;
@@ -68,6 +70,7 @@ export const ChallengeCard = ({
   hint,
   kind,
   selected,
+  required = false,
   days,
   requiredDays,
   suggested = false,
@@ -81,6 +84,52 @@ export const ChallengeCard = ({
   // the "Every day" pill already says it for daily cards
   const visibleHint = kind === 'daily' && hint === DAILY_HINT ? undefined : hint;
 
+  const header = (
+    <>
+      <span
+        aria-hidden="true"
+        className={cn(
+          'flex size-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
+          selected ? 'border-primary bg-primary text-primary-foreground' : 'border-border'
+        )}
+      >
+        {selected && <Check className="size-3.5" strokeWidth={3} />}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="font-semibold text-foreground">{title}</span>
+          {required && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-foreground px-2 py-0.5 text-xs font-semibold text-background">
+              <Lock className="size-3" aria-hidden="true" />
+            Required
+            </span>
+          )}
+          {!required && suggested && (
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+            ✨ Suggested
+            </span>
+          )}
+        </span>
+        {kind === 'monthly' ? (
+          <span className="mt-1 flex items-start gap-1 text-xs text-muted-foreground">
+            <Info className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+            <span>Follow every day · {hint}</span>
+          </span>
+        ) : (
+          visibleHint && <span className="mt-0.5 block text-xs text-muted-foreground">{visibleHint}</span>
+        )}
+        {custom && <span className="mt-0.5 block text-xs text-muted-foreground">Custom · tap to remove</span>}
+        {!required && suggested && reason && <span className="mt-1 block truncate text-xs italic text-muted-foreground">{reason}</span>}
+      </span>
+      {kind === 'daily' && (
+        <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+        Every day
+        </span>
+      )}
+      {custom && <X className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+    </>
+  );
+
   return (
     <div
       className={cn(
@@ -88,49 +137,19 @@ export const ChallengeCard = ({
         selected ? 'border-primary' : 'border-border'
       )}
     >
-      <button
-        type="button"
-        role="checkbox"
-        aria-checked={selected}
-        onClick={onToggleSelected}
-        className="flex w-full items-center gap-3 p-4 text-left transition-colors active:bg-muted/40"
-      >
-        <span
-          aria-hidden="true"
-          className={cn(
-            'flex size-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
-            selected ? 'border-primary bg-primary text-primary-foreground' : 'border-border'
-          )}
+      {required ? (
+        <div className="flex w-full items-center gap-3 p-4 text-left">{header}</div>
+      ) : (
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={selected}
+          onClick={onToggleSelected}
+          className="flex w-full items-center gap-3 p-4 text-left transition-colors active:bg-muted/40"
         >
-          {selected && <Check className="size-3.5" strokeWidth={3} />}
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="font-semibold text-foreground">{title}</span>
-            {suggested && (
-              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-                ✨ Suggested
-              </span>
-            )}
-          </span>
-          {kind === 'monthly' ? (
-            <span className="mt-1 flex items-start gap-1 text-xs text-muted-foreground">
-              <Info className="mt-px size-3.5 shrink-0" aria-hidden="true" />
-              <span>Follow every day · {hint}</span>
-            </span>
-          ) : (
-            visibleHint && <span className="mt-0.5 block text-xs text-muted-foreground">{visibleHint}</span>
-          )}
-          {custom && <span className="mt-0.5 block text-xs text-muted-foreground">Custom · tap to remove</span>}
-          {suggested && reason && <span className="mt-1 block truncate text-xs italic text-muted-foreground">{reason}</span>}
-        </span>
-        {kind === 'daily' && (
-          <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
-            Every day
-          </span>
-        )}
-        {custom && <X className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
-      </button>
+          {header}
+        </button>
+      )}
 
       {showDays && (
         <DayPicker
