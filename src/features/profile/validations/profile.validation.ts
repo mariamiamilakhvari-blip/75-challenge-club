@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { SignUpSchema } from '@/features/auth/validations/auth.validation';
-import { MAX_CHALLENGES } from '@/shared/const/challenge.const';
+import { MAX_CHALLENGES, MIN_CHALLENGES } from '@/shared/const/challenge.const';
 
 export const UserChallengeInputSchema = z.object({
   key: z.string().min(1).max(80),
@@ -9,13 +9,12 @@ export const UserChallengeInputSchema = z.object({
   custom: z.boolean(),
   days: z
     .array(z.number().int().min(0).max(6))
-    .min(1)
     .max(7)
     .refine((days) => new Set(days).size === days.length, 'Days must be unique'),
 });
 
 export const UpdateChallengesSchema = z.object({
-  challenges: z.array(UserChallengeInputSchema).min(1).max(MAX_CHALLENGES),
+  challenges: z.array(UserChallengeInputSchema).min(MIN_CHALLENGES).max(MAX_CHALLENGES),
 });
 
 export type UserChallengeInput = z.infer<typeof UserChallengeInputSchema>;

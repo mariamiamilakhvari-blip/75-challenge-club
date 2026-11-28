@@ -26,9 +26,16 @@ export const checkInRepository = {
       .exec();
   },
 
+  async findByUsersBetween(userIds: string[], from: string, to: string): Promise<CheckInDocument[]> {
+    await mongo.connect();
+    return CheckInModel.find({ userId: { $in: userIds }, date: { $gte: from, $lte: to } })
+      .lean<CheckInDocument[]>()
+      .exec();
+  },
+
   async findCommentedByUsersSince(userIds: string[], since: string): Promise<CheckInDocument[]> {
     await mongo.connect();
-    return CheckInModel.find({ userId: { $in: userIds }, date: { $gte: since }, comment: { $ne: '' } })
+    return CheckInModel.find({ userId: { $in: userIds }, date: { $gte: since }, comment: { $ne: '' }, exception: { $ne: true } })
       .sort({ createdAt: -1 })
       .limit(50)
       .lean<CheckInDocument[]>()
@@ -41,6 +48,7 @@ export const checkInRepository = {
     date: string;
     challengeKey: string;
     comment: string;
+    exception: boolean;
   }): Promise<string> {
     await mongo.connect();
     const doc = await CheckInModel.create({ ...data, joiners: [] });

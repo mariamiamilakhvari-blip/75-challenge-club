@@ -37,6 +37,8 @@ const user = {
     { key: 'water', title: 'Drink water', custom: false, days: [0, 1, 2, 3, 4, 5, 6] },
     { key: 'read', title: 'Read', custom: false, days: [4] },
     { key: 'social', title: 'Social', custom: false, days: [5] },
+    { key: 'no-junk', title: 'Old junk title', custom: false, days: [0, 1, 2, 3, 4, 5, 6] },
+    { key: 'yoga-x', title: 'Yoga', custom: true, days: [4] },
   ],
 } as UserDocument;
 
@@ -58,6 +60,7 @@ function checkIn(overrides: Partial<CheckInDocument>): CheckInDocument {
     date: TODAY,
     challengeKey: 'water',
     comment: '',
+    exception: false,
     ...overrides,
   } as CheckInDocument;
 }
@@ -81,7 +84,7 @@ describe('checkin.service', () => {
     it('returns only challenges scheduled today with done state', async () => {
       vi.mocked(profileRepository.findById).mockResolvedValue(user);
       const done = checkIn({ challengeKey: 'water', comment: 'Gym' });
-      vi.mocked(checkInRepository.findByUserAndDate).mockResolvedValue([done]);
+      vi.mocked(checkInRepository.findByUserBetween).mockResolvedValue([done]);
       const res = await getTodayService(userId.toString());
       expect(res.status).toBe(200);
       expect(res.data).toMatchObject({
@@ -90,16 +93,38 @@ describe('checkin.service', () => {
         completed: false,
         teammates: [],
         items: [
-          { key: 'water', done: true, checkInId: done._id.toString(), comment: 'Gym' },
-          { key: 'read', done: false, checkInId: null, comment: '' },
+          { key: 'water', kind: 'daily', done: true, exception: false, checkInId: done._id.toString(), comment: 'Gym' },
+          { key: 'read', kind: 'daily', done: false, checkInId: null, comment: '' },
+          { key: 'no-junk', title: 'No junk food', kind: 'monthly', done: false, exceptionsUsed: 0, exceptionsAllowed: 1 },
+          { key: 'yoga-x', title: 'Yoga', kind: 'custom', done: false },
         ],
       });
+      expect(checkInRepository.findByUserBetween).toHaveBeenCalledWith(userId.toString(), '2026-11-01', TODAY);
+    });
+
+    it('reports monthly exceptions used this month and today exception state', async () => {
+      vi.mocked(profileRepository.findById).mockResolvedValue(user);
+      vi.mocked(checkInRepository.findByUserBetween).mockResolvedValue([
+        checkIn({ challengeKey: 'no-junk', date: '2026-11-03', exception: true }),
+        checkIn({ challengeKey: 'no-junk', exception: true }),
+        checkIn({ challengeKey: 'water', date: '2026-11-03' }),
+      ]);
+      const res = await getTodayService(userId.toString());
+      const items = 'items' in res.data ? res.data.items : [];
+      expect(items.find((i) => i.key === 'no-junk')).toMatchObject({
+        done: true,
+        exception: true,
+        exceptionsUsed: 2,
+        exceptionsAllowed: 1,
+      });
+      expect(items.find((i) => i.key === 'water')).toMatchObject({ done: false });
+      expect(items.find((i) => i.key === 'water')).not.toHaveProperty('exceptionsUsed');
     });
 
     it('marks completed on day 75', async () => {
       vi.mocked(profileRepository.findById).mockResolvedValue(user);
       vi.mocked(syncStreak).mockResolvedValue({ user, today: TODAY, day: 75 });
-      vi.mocked(checkInRepository.findByUserAndDate).mockResolvedValue([]);
+      vi.mocked(checkInRepository.findByUserBetween).mockResolvedValue([]);
       const res = await getTodayService(userId.toString());
       expect(res.data).toMatchObject({ completed: true });
     });
@@ -107,21 +132,47 @@ describe('checkin.service', () => {
     it('computes teammate progress for their own today', async () => {
       const teamed = { ...user, teamId } as UserDocument;
       vi.mocked(profileRepository.findById).mockResolvedValue(teamed);
-      vi.mocked(checkInRepository.findByUserAndDate).mockResolvedValue([]);
+      vi.mocked(checkInRepository.findByUserBetween).mockResolvedValue([]);
       vi.mocked(teamRepository.findById).mockResolvedValue({
         _id: teamId,
         members: [userId, mateId],
       } as TeamDocument);
       vi.mocked(profileRepository.findByIds).mockResolvedValue([mate]);
-      vi.mocked(checkInRepository.findByUsersOnDates).mockResolvedValue([
+      vi.mocked(checkInRepository.findByUsersBetween).mockResolvedValue([
         checkIn({ userId: mateId, challengeKey: 'water' }),
         checkIn({ userId: mateId, challengeKey: 'water', date: '2026-11-26' }),
       ]);
       const res = await getTodayService(userId.toString());
       expect(profileRepository.findByIds).toHaveBeenCalledWith([mateId.toString()]);
-      expect(checkInRepository.findByUsersOnDates).toHaveBeenCalledWith([mateId.toString()], [TODAY]);
+      expect(checkInRepository.findByUsersBetween).toHaveBeenCalledWith([mateId.toString()], '2026-11-01', TODAY);
       expect(res.data).toMatchObject({
         teammates: [{ id: mateId.toString(), name: 'Nino', done: 1, total: 2 }],
+      });
+    });
+
+    it('counts a teammate monthly exception as done only within the allowance', async () => {
+      const teamed = { ...user, teamId } as UserDocument;
+      const monthlyMate = {
+        ...mate,
+        challenges: [
+          { key: 'no-junk', title: 'No junk', custom: false, days: [0, 1, 2, 3, 4, 5, 6] },
+          { key: 'no-alcohol', title: 'No alcohol', custom: false, days: [0, 1, 2, 3, 4, 5, 6] },
+        ],
+      } as UserDocument;
+      vi.mocked(profileRepository.findById).mockResolvedValue(teamed);
+      vi.mocked(checkInRepository.findByUserBetween).mockResolvedValue([]);
+      vi.mocked(teamRepository.findById).mockResolvedValue({ _id: teamId, members: [userId, mateId] } as TeamDocument);
+      vi.mocked(profileRepository.findByIds).mockResolvedValue([monthlyMate]);
+      vi.mocked(checkInRepository.findByUsersBetween).mockResolvedValue([
+        // no-junk: cheat already used earlier this month → today's cheat is a miss
+        checkIn({ userId: mateId, challengeKey: 'no-junk', date: '2026-11-10', exception: true }),
+        checkIn({ userId: mateId, challengeKey: 'no-junk', exception: true }),
+        // no-alcohol: first drink this month → counts as done
+        checkIn({ userId: mateId, challengeKey: 'no-alcohol', exception: true }),
+      ]);
+      const res = await getTodayService(userId.toString());
+      expect(res.data).toMatchObject({
+        teammates: [{ id: mateId.toString(), done: 1, total: 2 }],
       });
     });
   });
@@ -162,7 +213,26 @@ describe('checkin.service', () => {
         date: TODAY,
         challengeKey: 'read',
         comment: 'Pilates 18:00',
+        exception: false,
       });
+    });
+
+    it('returns 400 NOT_MONTHLY for an exception on a non-monthly challenge', async () => {
+      vi.mocked(profileRepository.findById).mockResolvedValue(user);
+      const res = await createCheckInService(userId.toString(), { challengeKey: 'water', exception: true });
+      expect(res).toEqual({ data: { error: 'NOT_MONTHLY' }, status: 400 });
+      expect(checkInRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('stores a monthly exception even when the allowance is used', async () => {
+      vi.mocked(profileRepository.findById).mockResolvedValue(user);
+      vi.mocked(checkInRepository.findByUserAndDate).mockResolvedValue([]);
+      vi.mocked(checkInRepository.create).mockResolvedValue('ex1');
+      const res = await createCheckInService(userId.toString(), { challengeKey: 'no-junk', exception: true });
+      expect(res).toEqual({ data: { id: 'ex1' }, status: 201 });
+      expect(checkInRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ challengeKey: 'no-junk', exception: true, comment: '' })
+      );
     });
   });
 

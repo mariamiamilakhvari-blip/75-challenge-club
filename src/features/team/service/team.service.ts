@@ -6,8 +6,9 @@ import { teamRepository } from '@/features/team/repository/team.repository';
 import { toUserChallenges } from '@/features/team/service/discover.service';
 import { TeamBoard, TeamComment, TeamGridRow } from '@/features/team/types/team.types';
 import { ObjectIdSchema } from '@/features/team/validations/team.validation';
-import { ALL_DAYS, CHALLENGES, MAX_TEAM_SIZE } from '@/shared/const/challenge.const';
+import { ALL_DAYS, MAX_TEAM_SIZE, MONTHLY_EXCEPTIONS_ALLOWED } from '@/shared/const/challenge.const';
 import { ServiceResult } from '@/shared/types/common';
+import { challengeKind, getPreset } from '@/shared/utils/challenge-rules';
 import { addDays, todayInTimezone, weekdayIndex } from '@/shared/utils/date';
 
 async function leaveCurrentTeam(userId: string, teamId: string): Promise<void> {
@@ -65,12 +66,21 @@ export async function leaveTeamService(userId: string): Promise<ServiceResult<{ 
   return { data: { left: true }, status: 200 };
 }
 
+function rowLabel(key: string): string | null {
+  const kind = challengeKind(key);
+  if (kind === 'daily') return 'Every day';
+  if (kind === 'monthly') return `Every day · ${MONTHLY_EXCEPTIONS_ALLOWED}/month allowance`;
+  return null;
+}
+
 export function buildGrid(viewer: UserDocument, members: UserDocument[]): TeamGridRow[] {
   return viewer.challenges
     .filter((c) => members.every((m) => m.challenges.some((mc) => mc.key === c.key)))
     .map((c) => ({
       key: c.key,
-      title: c.title,
+      title: getPreset(c.key)?.title ?? c.title,
+      kind: challengeKind(c.key),
+      label: rowLabel(c.key),
       counts: ALL_DAYS.map(
         (d) => members.filter((m) => m.challenges.some((mc) => mc.key === c.key && mc.days.includes(d))).length
       ),
@@ -78,8 +88,7 @@ export function buildGrid(viewer: UserDocument, members: UserDocument[]): TeamGr
 }
 
 function challengeTitle(owner: UserDocument | undefined, key: string): string {
-  const own = owner?.challenges.find((c) => c.key === key);
-  return own?.title ?? CHALLENGES.find((c) => c.key === key)?.title ?? key;
+  return getPreset(key)?.title ?? owner?.challenges.find((c) => c.key === key)?.title ?? key;
 }
 
 async function buildComments(viewerId: string, members: UserDocument[], since: string): Promise<TeamComment[]> {
@@ -93,7 +102,8 @@ async function buildComments(viewerId: string, members: UserDocument[], since: s
   const extra = unknownJoiners.length > 0 ? await profileRepository.findByIds(unknownJoiners) : [];
   extra.forEach((u) => nameById.set(u._id.toString(), u.name));
 
-  return checkIns.map((c) => {
+  // exceptions (monthly cheat / drink) are never shown in the feed
+  return checkIns.filter((c) => !c.exception).map((c) => {
     const ownerId = c.userId.toString();
     const joinerIds = c.joiners.map((j) => j.toString());
     return {

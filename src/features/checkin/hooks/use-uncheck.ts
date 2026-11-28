@@ -14,7 +14,18 @@ export const useUncheck = (update: TodayUpdater, reload: () => Promise<void>) =>
     setError(null);
     update((view) => ({
       ...view,
-      items: view.items.map((i) => (i.key === item.key ? { ...i, done: false, checkInId: null, comment: '' } : i)),
+      items: view.items.map((i) =>
+        i.key === item.key
+          ? {
+            ...i,
+            done: false,
+            exception: false,
+            checkInId: null,
+            comment: '',
+            ...(i.exception ? { exceptionsUsed: Math.max(0, (i.exceptionsUsed ?? 1) - 1) } : {}),
+          }
+          : i
+      ),
     }));
     try {
       await http.delete(`/checkins/${id}`);

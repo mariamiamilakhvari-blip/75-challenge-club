@@ -41,7 +41,11 @@ export const TodayScreen = () => {
       <TodayHeader date={view.date} />
       <DayCounter day={view.day} completed={view.completed} />
       {actionError && <p className="text-sm font-medium text-destructive">{actionError}</p>}
-      <TodayList items={view.items} onCheckIn={(key, comment) => void checkIn(key, comment)} onUncheck={(item) => void uncheck(item)} />
+      <TodayList
+        items={view.items}
+        onCheckIn={(key, comment, exception) => void checkIn(key, comment, exception)}
+        onUncheck={(item) => void uncheck(item)}
+      />
       <TeammatesStrip teammates={view.teammates} />
     </div>
   );

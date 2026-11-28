@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { dayNumber, displayDay, evaluateStreak, scheduledKeysFor } from '@/shared/utils/streak';
+import {
+  buildDoneByDate,
+  dayNumber,
+  displayDay,
+  evaluateStreak,
+  exceptionsUsedInMonth,
+  firstOfMonth,
+  scheduledKeysFor,
+} from '@/shared/utils/streak';
 
 const everyDay = [{ key: 'water', days: [0, 1, 2, 3, 4, 5, 6] }];
 
@@ -68,5 +76,63 @@ describe('streak', () => {
     expect(dayNumber('2026-11-27', '2026-11-27')).toBe(1);
     expect(dayNumber('2026-11-01', '2026-11-27')).toBe(27);
     expect(displayDay('2026-01-01', '2026-11-27')).toBe(75);
+  });
+
+  describe('monthly allowance', () => {
+    const noJunk = [{ key: 'no-junk', days: [0, 1, 2, 3, 4, 5, 6] }];
+
+    it('counts first exception of the month as done', () => {
+      const doneByDate = buildDoneByDate([
+        { date: '2026-11-25', challengeKey: 'no-junk' },
+        { date: '2026-11-26', challengeKey: 'no-junk', exception: true },
+      ]);
+      const result = evaluateStreak({
+        streakStart: '2026-11-25',
+        lastEvaluated: '',
+        today: '2026-11-27',
+        challenges: noJunk,
+        doneByDate,
+      });
+      expect(result.streakStart).toBe('2026-11-25');
+    });
+
+    it('treats second exception in same month as a miss', () => {
+      const doneByDate = buildDoneByDate([
+        { date: '2026-11-10', challengeKey: 'no-junk', exception: true },
+        { date: '2026-11-25', challengeKey: 'no-junk' },
+        { date: '2026-11-26', challengeKey: 'no-junk', exception: true },
+      ]);
+      expect(doneByDate.get('2026-11-10')?.has('no-junk')).toBe(true);
+      expect(doneByDate.get('2026-11-26')).toBeUndefined();
+      const result = evaluateStreak({
+        streakStart: '2026-11-25',
+        lastEvaluated: '',
+        today: '2026-11-27',
+        challenges: noJunk,
+        doneByDate,
+      });
+      expect(result.streakStart).toBe('2026-11-27');
+    });
+
+    it('resets allowance each calendar month and per challenge', () => {
+      const doneByDate = buildDoneByDate([
+        { date: '2026-11-30', challengeKey: 'no-junk', exception: true },
+        { date: '2026-12-01', challengeKey: 'no-junk', exception: true },
+        { date: '2026-12-02', challengeKey: 'no-alcohol', exception: true },
+      ]);
+      expect(doneByDate.get('2026-11-30')?.has('no-junk')).toBe(true);
+      expect(doneByDate.get('2026-12-01')?.has('no-junk')).toBe(true);
+      expect(doneByDate.get('2026-12-02')?.has('no-alcohol')).toBe(true);
+    });
+
+    it('counts exceptions used in a month', () => {
+      const checkIns = [
+        { date: '2026-11-03', challengeKey: 'no-junk', exception: true },
+        { date: '2026-10-30', challengeKey: 'no-junk', exception: true },
+        { date: '2026-11-04', challengeKey: 'no-junk' },
+      ];
+      expect(exceptionsUsedInMonth(checkIns, 'no-junk', '2026-11-20')).toBe(1);
+      expect(firstOfMonth('2026-11-20')).toBe('2026-11-01');
+    });
   });
 });

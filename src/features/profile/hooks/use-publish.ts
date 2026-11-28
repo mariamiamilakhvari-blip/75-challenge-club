@@ -3,10 +3,11 @@ import { useState } from 'react';
 
 import { useProfileStore } from '@/features/profile/hooks/useProfileStore';
 import { Profile } from '@/features/profile/types/profile.types';
+import { MIN_CHALLENGES } from '@/shared/const/challenge.const';
 import { http } from '@/shared/lib/http';
 
 const ERROR_MESSAGES: Record<string, string> = {
-  NO_CHALLENGES: 'Pick at least one challenge first',
+  NOT_ENOUGH_CHALLENGES: `Pick at least ${MIN_CHALLENGES} challenges first`,
 };
 
 export const usePublish = () => {

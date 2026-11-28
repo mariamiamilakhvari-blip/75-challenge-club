@@ -1,4 +1,5 @@
 import { UserChallenge } from '@/features/profile/types/profile.types';
+import { ChallengeKind } from '@/shared/const/challenge.const';
 
 export type DiscoverCard = {
   id: string;
@@ -23,6 +24,9 @@ export type TeamMember = {
 export type TeamGridRow = {
   key: string;
   title: string;
+  kind: ChallengeKind | 'custom';
+  // daily / monthly rows: fixed every-day label instead of per-weekday counts
+  label: string | null;
   counts: number[];
 };
 

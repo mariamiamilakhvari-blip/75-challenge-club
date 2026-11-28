@@ -11,7 +11,17 @@ vi.mock('@/features/profile/service/profile.service', () => ({ updateChallengesS
 vi.mock('@/shared/lib/session', () => ({ sessionReader: { currentUserId: vi.fn() } }));
 vi.mock('@/shared/middleware/validate-body', () => ({ validateBody: vi.fn() }));
 
-const body = { challenges: [{ key: 'water', title: 'Water', custom: false, days: [0] }] };
+const ALL = [0, 1, 2, 3, 4, 5, 6];
+
+const body = {
+  challenges: [
+    { key: 'water', title: 'Drink 2 L of water', custom: false, days: ALL },
+    { key: 'read', title: 'Read 10 pages', custom: false, days: ALL },
+    { key: 'workout', title: 'Work out 45 min', custom: false, days: [0, 2, 4, 5] },
+    { key: 'no-junk', title: 'No junk food', custom: false, days: ALL },
+    { key: 'custom-walk-ab12', title: 'Walk the dog', custom: true, days: [6] },
+  ],
+};
 
 function makeRequest() {
   return new NextRequest('http://localhost/api/profile/challenges', {

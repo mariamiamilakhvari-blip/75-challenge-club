@@ -129,14 +129,27 @@ describe('getTeamBoardService', () => {
   });
 
   it('builds members, intersection grid, and comments', async () => {
-    const me = fakeUser('me', 'T', [{ key: 'water', days: [0, 1, 2] }, { key: 'read', days: [0] }]);
-    const mate = fakeUser('mate', 'T', [{ key: 'water', days: [1, 2] }]);
+    const everyDay = [0, 1, 2, 3, 4, 5, 6];
+    const me = fakeUser('me', 'T', [
+      { key: 'water', days: everyDay },
+      { key: 'read', days: everyDay },
+      { key: 'workout', days: [0, 1, 2, 4] },
+      { key: 'no-junk', days: everyDay },
+      { key: 'my-own', days: [0] },
+    ]);
+    const mate = fakeUser('mate', 'T', [
+      { key: 'water', days: everyDay },
+      { key: 'workout', days: [1, 2, 4, 5] },
+      { key: 'no-junk', days: everyDay },
+      { key: 'my-own', days: [0, 3] },
+    ]);
     mockProfile.findById.mockResolvedValueOnce(me);
     mockTeam.findById.mockResolvedValueOnce(team('T', ['me', 'mate']));
     mockProfile.findByIds.mockResolvedValueOnce([me, mate]);
     mockSync.mockImplementation(async (user) => ({ user, today: '2026-11-25', day: 7 }));
     mockCheckIn.findCommentedByUsersSince.mockResolvedValueOnce([
       { _id: oid('c1'), userId: oid('mate'), challengeKey: 'water', comment: 'Park 7pm', date: '2026-11-25', joiners: [oid('me')] },
+      { _id: oid('c2'), userId: oid('mate'), challengeKey: 'no-junk', comment: 'Pizza', date: '2026-11-25', exception: true, joiners: [] },
     ] as never);
 
     const result = await getTeamBoardService('me');
@@ -145,13 +158,20 @@ describe('getTeamBoardService', () => {
     expect(board).toMatchObject({
       teamId: 'T',
       todayIndex: 2,
-      grid: [{ key: 'water', title: 'T-water', counts: [1, 2, 2, 0, 0, 0, 0] }],
+      grid: [
+        { key: 'water', title: 'Drink 2 L of water', kind: 'daily', label: 'Every day', counts: [2, 2, 2, 2, 2, 2, 2] },
+        { key: 'workout', title: 'Work out 45 min', kind: 'scheduled', label: null, counts: [1, 2, 2, 0, 2, 1, 0] },
+        { key: 'no-junk', title: 'No junk food', kind: 'monthly', label: 'Every day · 1/month allowance' },
+        { key: 'my-own', title: 'T-my-own', kind: 'custom', label: null, counts: [2, 0, 0, 1, 0, 0, 0] },
+      ],
       members: [
         { id: 'me', day: 7, isMe: true },
         { id: 'mate', day: 7, isMe: false },
       ],
-      comments: [{ id: 'c1', userName: 'mate', challengeTitle: 'T-water', joinedByMe: true, isMine: false, joiners: [{ id: 'me', name: 'me' }] }],
+      comments: [{ id: 'c1', userName: 'mate', challengeTitle: 'Drink 2 L of water', joinedByMe: true, isMine: false, joiners: [{ id: 'me', name: 'me' }] }],
     });
+    const memberChallenges = 'memberChallenges' in board ? board.memberChallenges : [];
+    expect(memberChallenges[0]?.challenges[0]).toMatchObject({ key: 'water', title: 'Drink 2 L of water' });
     expect(mockCheckIn.findCommentedByUsersSince).toHaveBeenCalledWith(['me', 'mate'], '2026-11-23');
   });
 });

@@ -5,6 +5,7 @@ import { teamRepository } from '@/features/team/repository/team.repository';
 import { DiscoverCard } from '@/features/team/types/team.types';
 import { MAX_TEAM_SIZE } from '@/shared/const/challenge.const';
 import { ServiceResult } from '@/shared/types/common';
+import { getPreset } from '@/shared/utils/challenge-rules';
 
 type ScheduledChallenge = { key: string; days: number[] };
 
@@ -38,7 +39,12 @@ export function computeOverlap(mine: ScheduledChallenge[], theirs: ScheduledChal
 }
 
 export function toUserChallenges(user: UserDocument): UserChallenge[] {
-  return user.challenges.map((c) => ({ key: c.key, title: c.title, custom: c.custom, days: [...c.days] }));
+  return user.challenges.map((c) => ({
+    key: c.key,
+    title: getPreset(c.key)?.title ?? c.title,
+    custom: c.custom,
+    days: [...c.days],
+  }));
 }
 
 function createdAtMs(user: UserDocument): number {

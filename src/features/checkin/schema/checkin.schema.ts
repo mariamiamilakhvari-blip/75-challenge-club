@@ -7,6 +7,7 @@ const CheckInSchema = new Schema(
     date: { type: String, required: true },
     challengeKey: { type: String, required: true },
     comment: { type: String, required: false, default: '' },
+    exception: { type: Boolean, required: true, default: false },
     joiners: { type: [Schema.Types.ObjectId], ref: 'User', required: true, default: [] },
   },
   { timestamps: true }

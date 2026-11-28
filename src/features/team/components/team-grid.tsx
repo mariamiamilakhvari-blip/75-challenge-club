@@ -36,26 +36,38 @@ export const TeamGrid = ({ rows, total, todayIndex }: TeamGridProps) => {
               <th scope="row" className="max-w-36 truncate px-3 py-2.5 text-left font-semibold">
                 {row.title}
               </th>
-              {row.counts.map((count, d) => {
-                const everyone = count === total;
-                return (
-                  <td key={d} className={cn('px-1 py-2.5 text-center', d === todayIndex && 'bg-accent')}>
-                    {count === 0 ? (
-                      <span className="text-muted-foreground" aria-label="Nobody">–</span>
-                    ) : (
-                      <span className="flex flex-col items-center gap-0.5">
-                        <span
-                          className={cn('size-2 rounded-full', everyone ? 'bg-success' : 'border border-muted-foreground')}
-                          aria-hidden
-                        />
-                        <span className={cn('font-mono text-xs', everyone ? 'font-bold text-foreground' : 'text-muted-foreground')}>
-                          {count}/{total}
+              {row.label ? (
+                <td colSpan={WEEKDAYS.length} className="px-3 py-2.5">
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="size-2 rounded-full bg-success" aria-hidden />
+                    <span className="text-xs font-semibold text-foreground">{row.label}</span>
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {total}/{total}
+                    </span>
+                  </span>
+                </td>
+              ) : (
+                row.counts.map((count, d) => {
+                  const everyone = count === total;
+                  return (
+                    <td key={d} className={cn('px-1 py-2.5 text-center', d === todayIndex && 'bg-accent')}>
+                      {count === 0 ? (
+                        <span className="text-muted-foreground" aria-label="Nobody">–</span>
+                      ) : (
+                        <span className="flex flex-col items-center gap-0.5">
+                          <span
+                            className={cn('size-2 rounded-full', everyone ? 'bg-success' : 'border border-muted-foreground')}
+                            aria-hidden
+                          />
+                          <span className={cn('font-mono text-xs', everyone ? 'font-bold text-foreground' : 'text-muted-foreground')}>
+                            {count}/{total}
+                          </span>
                         </span>
-                      </span>
-                    )}
-                  </td>
-                );
-              })}
+                      )}
+                    </td>
+                  );
+                })
+              )}
             </tr>
           ))}
         </tbody>

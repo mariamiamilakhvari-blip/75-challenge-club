@@ -6,10 +6,11 @@ import { CreateCheckInType } from '@/features/checkin/validations/checkin.valida
 import { profileRepository } from '@/features/profile/repository/profile.repository';
 import { syncStreak } from '@/features/profile/service/streak.service';
 import { teamRepository } from '@/features/team/repository/team.repository';
-import { CHALLENGE_LENGTH_DAYS } from '@/shared/const/challenge.const';
+import { CHALLENGE_LENGTH_DAYS, MONTHLY_EXCEPTIONS_ALLOWED } from '@/shared/const/challenge.const';
 import { ServiceResult } from '@/shared/types/common';
+import { challengeKind, getPreset, isMonthly } from '@/shared/utils/challenge-rules';
 import { todayInTimezone, weekdayIndex } from '@/shared/utils/date';
-import { scheduledKeysFor } from '@/shared/utils/streak';
+import { buildDoneByDate, exceptionsUsedInMonth, firstOfMonth, scheduledKeysFor } from '@/shared/utils/streak';
 
 const OBJECT_ID_PATTERN = /^[a-f0-9]{24}$/i;
 
@@ -22,19 +23,31 @@ async function loadPublishedUser(userId: string): Promise<PublishedUserResult> {
   return { user };
 }
 
-function buildItems(user: UserDocument, today: string, checkIns: CheckInDocument[]): TodayItem[] {
+/**
+ * monthCheckIns: the user's check-ins from the 1st of the month to today,
+ * so monthly exception usage can be reported.
+ */
+function buildItems(user: UserDocument, today: string, monthCheckIns: CheckInDocument[]): TodayItem[] {
   const weekday = weekdayIndex(today);
-  const byKey = new Map(checkIns.map((c) => [c.challengeKey, c]));
+  const byKey = new Map(monthCheckIns.filter((c) => c.date === today).map((c) => [c.challengeKey, c]));
   return user.challenges
     .filter((c) => c.days.includes(weekday))
     .map((c) => {
       const checkIn = byKey.get(c.key);
-      return {
+      const item: TodayItem = {
         key: c.key,
-        title: c.title,
+        title: getPreset(c.key)?.title ?? c.title,
+        kind: challengeKind(c.key),
         done: Boolean(checkIn),
+        exception: Boolean(checkIn?.exception),
         checkInId: checkIn ? checkIn._id.toString() : null,
         comment: checkIn?.comment ?? '',
+      };
+      if (!isMonthly(c.key)) return item;
+      return {
+        ...item,
+        exceptionsUsed: exceptionsUsedInMonth(monthCheckIns, c.key, today),
+        exceptionsAllowed: MONTHLY_EXCEPTIONS_ALLOWED,
       };
     });
 }
@@ -50,16 +63,18 @@ async function buildTeammates(user: UserDocument): Promise<TeammateProgress[]> {
 
   const members = await profileRepository.findByIds(memberIds);
   const todayById = new Map(members.map((m) => [m._id.toString(), todayInTimezone(m.timezone)]));
-  const dates = [...new Set(todayById.values())];
-  const checkIns = await checkInRepository.findByUsersOnDates(memberIds, dates);
+  const dates = [...todayById.values()].sort();
+  // month-to-date so a monthly exception only counts as done within the allowance
+  const from = firstOfMonth(dates[0] ?? '');
+  const to = dates[dates.length - 1] ?? '';
+  const checkIns = await checkInRepository.findByUsersBetween(memberIds, from, to);
 
   return members.map((member) => {
     const id = member._id.toString();
     const date = todayById.get(id) ?? '';
     const scheduled = scheduledKeysFor(member.challenges, date);
-    const doneKeys = new Set(
-      checkIns.filter((c) => c.userId.toString() === id && c.date === date).map((c) => c.challengeKey)
-    );
+    const own = checkIns.filter((c) => c.userId.toString() === id && c.date >= firstOfMonth(date) && c.date <= date);
+    const doneKeys = buildDoneByDate(own).get(date) ?? new Set<string>();
     return {
       id,
       name: member.name,
@@ -74,8 +89,8 @@ export async function getTodayService(userId: string): Promise<ServiceResult<Tod
   if ('error' in loaded) return loaded.error;
 
   const { user, today, day } = await syncStreak(loaded.user);
-  const [checkIns, teammates] = await Promise.all([
-    checkInRepository.findByUserAndDate(userId, today),
+  const [monthCheckIns, teammates] = await Promise.all([
+    checkInRepository.findByUserBetween(userId, firstOfMonth(today), today),
     buildTeammates(user),
   ]);
 
@@ -85,7 +100,7 @@ export async function getTodayService(userId: string): Promise<ServiceResult<Tod
       date: today,
       weekday: weekdayIndex(today),
       completed: day >= CHALLENGE_LENGTH_DAYS,
-      items: buildItems(user, today, checkIns),
+      items: buildItems(user, today, monthCheckIns),
       teammates,
     },
     status: 200,
@@ -99,6 +114,11 @@ export async function createCheckInService(
   const loaded = await loadPublishedUser(userId);
   if ('error' in loaded) return loaded.error;
   const { user } = loaded;
+
+  const exception = input.exception ?? false;
+  if (exception && !isMonthly(input.challengeKey)) {
+    return { data: { error: 'NOT_MONTHLY' }, status: 400 };
+  }
 
   const today = todayInTimezone(user.timezone);
   if (!scheduledKeysFor(user.challenges, today).includes(input.challengeKey)) {
@@ -116,6 +136,8 @@ export async function createCheckInService(
     date: today,
     challengeKey: input.challengeKey,
     comment: (input.comment ?? '').trim(),
+    // a 2nd+ exception in the same month is still stored; the streak sync counts it as a miss
+    exception,
   });
   return { data: { id }, status: 201 };
 }

@@ -4,7 +4,14 @@ import { useState } from 'react';
 import { useProfileStore } from '@/features/profile/hooks/useProfileStore';
 import { Profile } from '@/features/profile/types/profile.types';
 import { UpdateChallengesType } from '@/features/profile/validations/profile.validation';
+import { MIN_CHALLENGES } from '@/shared/const/challenge.const';
 import { http } from '@/shared/lib/http';
+
+const ERROR_MESSAGES: Record<string, string> = {
+  INVALID_DAYS: 'Some challenges have the wrong number of days',
+  INVALID_CHALLENGE: 'One of the challenges is not valid',
+  NOT_ENOUGH_CHALLENGES: `Pick at least ${MIN_CHALLENGES} challenges`,
+};
 
 export const useSaveChallenges = () => {
   const { setProfile } = useProfileStore();
@@ -19,7 +26,8 @@ export const useSaveChallenges = () => {
       setProfile(data);
       return data;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save challenges');
+      const message = err instanceof Error ? err.message : 'Could not save challenges';
+      setError(ERROR_MESSAGES[message] ?? message);
       return null;
     } finally {
       setSaving(false);

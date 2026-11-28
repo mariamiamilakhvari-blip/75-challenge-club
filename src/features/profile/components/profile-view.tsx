@@ -71,7 +71,7 @@ export const ProfileView = () => {
             {profile.challenges.map((challenge) => (
               <li key={challenge.key} className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0">
                 <span className="text-sm font-semibold text-foreground">{challenge.title}</span>
-                <DayLetters days={challenge.days} />
+                <DayLetters challengeKey={challenge.key} days={challenge.days} />
               </li>
             ))}
           </ul>

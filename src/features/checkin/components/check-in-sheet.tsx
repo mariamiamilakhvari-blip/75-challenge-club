@@ -73,7 +73,7 @@ export const CheckInSheet = ({ item, onClose, onSubmit }: CheckInSheetProps) => 
               )}
             />
             <Button type="submit" size="lg" className="w-full rounded-full font-bold">
-              Check off
+              {item?.kind === 'monthly' ? 'Stayed clean today' : 'Check off'}
             </Button>
             <Button type="button" variant="ghost" size="lg" className="w-full rounded-full" onClick={submitWithoutNote}>
               Check off without note

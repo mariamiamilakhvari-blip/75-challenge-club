@@ -2,10 +2,9 @@ import { ChallengeSuggestion, SuggestionsResult } from '@/features/ai/types/sugg
 import { AiSuggestionType, AiSuggestionsSchema } from '@/features/ai/validations/suggestion.validation';
 import { UserDocument } from '@/features/auth/schema/user.schema';
 import { profileRepository } from '@/features/profile/repository/profile.repository';
-import { CHALLENGES } from '@/shared/const/challenge.const';
+import { CHALLENGES, PresetChallenge } from '@/shared/const/challenge.const';
 import {
   ALWAYS_SUGGESTED_KEYS,
-  DEFAULT_SUGGESTION_DAYS,
   FALLBACK_FILLER_KEYS,
   FALLBACK_REASONS,
   INTEREST_CHALLENGE_MAP,
@@ -16,6 +15,7 @@ import {
 } from '@/shared/const/suggestion.const';
 import { ChatMessage, openRouter } from '@/shared/lib/openrouter';
 import { ServiceResult } from '@/shared/types/common';
+import { initialDays, normalizeDays } from '@/shared/utils/challenge-rules';
 
 type CacheEntry = { result: SuggestionsResult; expiresAt: number };
 
@@ -32,8 +32,18 @@ function truncate(text: string): string {
   return clean.length <= MAX_REASON_LENGTH ? clean : `${clean.slice(0, MAX_REASON_LENGTH - 1).trimEnd()}…`;
 }
 
+function describeRule(preset: PresetChallenge): string {
+  if (preset.kind === 'scheduled') {
+    return `scheduled — exactly ${preset.requiredDays} weekday${preset.requiredDays === 1 ? '' : 's'}`;
+  }
+  if (preset.kind === 'monthly') return 'monthly allowance — all 7 days, one exception per month';
+  return 'daily — all 7 days';
+}
+
 export function buildPrompt(user: UserDocument): ChatMessage[] {
-  const presets = CHALLENGES.map((item) => `- ${item.key}: ${item.title} (${item.hint})`).join('\n');
+  const presets = CHALLENGES.map((item) => `- ${item.key}: ${item.title} (${item.hint}) [${describeRule(item)}]`).join(
+    '\n'
+  );
   const interests = user.interests.length > 0 ? user.interests.join(', ') : 'not specified';
   const age = user.age ?? 'unknown';
   const city = user.city?.trim() || 'unknown';
@@ -46,16 +56,18 @@ export function buildPrompt(user: UserDocument): ChatMessage[] {
   const userPrompt = [
     `User profile — interests: ${interests}; age: ${age}; city: ${city}.`,
     '',
-    `Pick ${MIN_SUGGESTIONS}-${MAX_SUGGESTIONS} challenges for this user, using ONLY these preset keys:`,
+    `Pick ${MIN_SUGGESTIONS} challenges for this user (never fewer than ${MIN_SUGGESTIONS}, at most ${MAX_SUGGESTIONS}), using ONLY these preset keys:`,
     presets,
     '',
-    'For each pick choose weekdays as integers where 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun.',
-    'Fit the days to the habit: daily habits (water, sleep, read, meditate, no-junk, no-alcohol, doomscroll) use all 7 days;',
-    'social uses exactly 1 day (usually a weekend day); workout uses 3-5 days with rest days between; skill uses 3-6 days.',
+    'Days are weekday integers where 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun. Follow each rule exactly:',
+    '- daily challenges are fixed to all 7 days: [0,1,2,3,4,5,6].',
+    '- scheduled challenges must have EXACTLY the stated number of weekdays — choose days that fit the habit',
+    '  (spread workouts with rest days between, social usually on a weekend day).',
+    '- monthly allowance challenges are followed every day ([0,1,2,3,4,5,6]) with one exception allowed per month.',
     `Give a short, warm reason (max ${MAX_REASON_LENGTH} characters) tied to their interests.`,
     '',
     'Respond exactly in this shape:',
-    '{"suggestions":[{"key":"water","days":[0,1,2,3,4,5,6],"reason":"..."}]}',
+    '{"suggestions":[{"key":"water","days":[0,1,2,3,4,5,6],"reason":"..."},{"key":"workout","days":[0,2,4,5],"reason":"..."}]}',
   ].join('\n');
 
   return [
@@ -99,11 +111,7 @@ function normalize(items: AiSuggestionType[]): ChallengeSuggestion[] {
     const title = titleOf(key);
     if (!title || seen.has(key)) continue;
 
-    const days = Array.from(new Set(item.days.filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))).sort(
-      (a, b) => a - b
-    );
-    if (days.length === 0) continue;
-
+    const days = normalizeDays(key, item.days) ?? initialDays(key);
     const reason = truncate(item.reason) || FALLBACK_REASONS[key] || '';
     result.push({ key, title, days, reason });
     seen.add(key);
@@ -142,7 +150,7 @@ export function fallbackSuggestions(interests: string[]): ChallengeSuggestion[] 
   return ordered.flatMap((key) => {
     const title = titleOf(key);
     if (!title) return [];
-    return [{ key, title, days: [...(DEFAULT_SUGGESTION_DAYS[key] ?? [])], reason: FALLBACK_REASONS[key] ?? '' }];
+    return [{ key, title, days: initialDays(key), reason: FALLBACK_REASONS[key] ?? '' }];
   });
 }
 

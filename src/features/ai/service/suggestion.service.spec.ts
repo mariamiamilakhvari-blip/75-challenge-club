@@ -46,7 +46,7 @@ describe('suggestion.service', () => {
     expect(openRouter.chat).not.toHaveBeenCalled();
   });
 
-  it('parses fenced AI output, drops unknown keys, dedupes and clamps days', async () => {
+  it('parses fenced AI output, drops unknown keys, dedupes and normalizes days to the rules', async () => {
     vi.mocked(openRouter.chat).mockResolvedValueOnce(
       [
         'Sure! Here you go:',
@@ -56,7 +56,8 @@ describe('suggestion.service', () => {
             { key: 'workout', days: [4, 0, 2, 2, 9, -1], reason: 'You love yoga {flow}' },
             { key: 'surfing', days: [1], reason: 'nope' },
             { key: 'workout', days: [1], reason: 'dupe' },
-            { key: 'read', days: [], reason: 'no days' },
+            { key: 'read', days: [], reason: 'daily ignores days' },
+            { key: 'sleep', days: [6, 0, 1, 2, 3], reason: 'five nights' },
             { key: 'water', days: [0, 1, 2, 3, 4, 5, 6], reason: 'x'.repeat(200) },
             { key: 'social' },
           ],
@@ -69,14 +70,16 @@ describe('suggestion.service', () => {
     expect(result.status).toBe(200);
     expect(result.data).toMatchObject({ source: 'ai' });
     const data = result.data as { suggestions: { key: string; title: string; days: number[]; reason: string }[] };
-    expect(data.suggestions.map((item) => item.key)).toEqual(['workout', 'water']);
+    expect(data.suggestions.map((item) => item.key)).toEqual(['workout', 'read', 'sleep', 'water']);
     expect(data.suggestions[0]).toEqual({
       key: 'workout',
-      title: 'Work out 30 min',
-      days: [0, 2, 4],
+      title: 'Work out 45 min',
+      days: [0, 2, 4, 5],
       reason: 'You love yoga {flow}',
     });
-    expect(data.suggestions[1].reason.length).toBeLessThanOrEqual(80);
+    expect(data.suggestions[1].days).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(data.suggestions[2].days).toEqual([0, 1, 2, 3, 6]);
+    expect(data.suggestions[3].reason.length).toBeLessThanOrEqual(80);
   });
 
   it('falls back when AI returns null', async () => {
@@ -85,7 +88,7 @@ describe('suggestion.service', () => {
     expect(result.status).toBe(200);
     const data = result.data as { source: string; suggestions: { key: string }[] };
     expect(data.source).toBe('fallback');
-    expect(data.suggestions.map((item) => item.key)).toEqual(['workout', 'read', 'water', 'sleep']);
+    expect(data.suggestions.map((item) => item.key)).toEqual(['workout', 'read', 'water', 'sleep', 'meditate']);
   });
 
   it('falls back when AI output has no valid suggestions', async () => {
@@ -114,6 +117,8 @@ describe('suggestion.service', () => {
     expect(user.content).toContain('Yoga, Books');
     expect(user.content).toContain('Tbilisi');
     expect(user.content).toContain('no-alcohol: No alcohol');
+    expect(user.content).toContain('exactly 4 weekdays');
+    expect(user.content).toContain('Pick 5 challenges');
   });
 
   it('extracts the first balanced JSON object', () => {
@@ -121,11 +126,18 @@ describe('suggestion.service', () => {
     expect(extractJson('no json here')).toBeNull();
   });
 
-  it('fallback always has at least 3 picks including water and sleep', () => {
+  it('fallback always has at least 5 picks including water and sleep', () => {
     const keys = fallbackSuggestions([]).map((item) => item.key);
-    expect(keys).toEqual(['water', 'sleep', 'workout']);
+    expect(keys).toEqual(['water', 'sleep', 'workout', 'read', 'meditate']);
     const many = fallbackSuggestions(['Fitness', 'Books', 'Mindfulness', 'Tech', 'Travel']).map((item) => item.key);
-    expect(many).toHaveLength(5);
+    expect(many).toHaveLength(6);
     expect(many).toEqual(expect.arrayContaining(['water', 'sleep']));
+  });
+
+  it('fallback days follow the challenge rules', () => {
+    const byKey = Object.fromEntries(fallbackSuggestions(['Tech']).map((item) => [item.key, item.days]));
+    expect(byKey.water).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(byKey.sleep).toHaveLength(5);
+    expect(byKey.skill).toHaveLength(4);
   });
 });

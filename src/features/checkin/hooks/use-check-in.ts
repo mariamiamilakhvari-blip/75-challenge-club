@@ -14,14 +14,28 @@ function patchItem(key: string, patch: Partial<TodayItem>) {
 export const useCheckIn = (update: TodayUpdater, reload: () => Promise<void>) => {
   const [error, setError] = useState<string | null>(null);
 
-  const checkIn = async (challengeKey: string, comment?: string) => {
+  const checkIn = async (challengeKey: string, comment?: string, exception = false) => {
     const note = comment?.trim() ?? '';
     setError(null);
-    update((view) => ({ ...view, items: view.items.map(patchItem(challengeKey, { done: true, comment: note })) }));
+    update((view) => ({
+      ...view,
+      items: view.items.map((item) =>
+        item.key === challengeKey
+          ? {
+            ...item,
+            done: true,
+            comment: note,
+            exception,
+            ...(exception ? { exceptionsUsed: (item.exceptionsUsed ?? 0) + 1 } : {}),
+          }
+          : item
+      ),
+    }));
     try {
       const { id } = await http.post<CreateCheckInResponse>('/checkins', {
         challengeKey,
         ...(note ? { comment: note } : {}),
+        ...(exception ? { exception: true } : {}),
       });
       update((view) => ({ ...view, items: view.items.map(patchItem(challengeKey, { checkInId: id })) }));
     } catch {
